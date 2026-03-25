@@ -1,0 +1,4 @@
+LIBRARY
+EXPORTS
+  __rustc_proc_macro_decls_2f08418fc6aa22d9__ DATA
+  rust_metadata_tokio_macros_2f08418fc6aa22d9 DATA
