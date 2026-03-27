@@ -333,6 +333,11 @@ def get_token_by_device_id(connection: sqlite3.Connection, device_id: str):
     return row_to_token_dict(row)
 
 
+def generate_license_chat_id(key_value: str) -> int:
+    key_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, f"limitless-license:{key_value.upper()}")
+    return -((key_uuid.int % 2_000_000_000) + 1)
+
+
 def get_star_payment_by_charge_id(connection: sqlite3.Connection, charge_id: str):
     row = connection.execute(
         """
@@ -664,6 +669,16 @@ def create_token_record(connection: sqlite3.Connection, chat_id: int, username: 
         (token, chat_id, username, now_iso()),
     )
     return get_token_by_value(connection, token)
+
+
+def create_token_record_for_license_key(connection: sqlite3.Connection, license_key: dict) -> dict:
+    synthetic_chat_id = generate_license_chat_id(license_key["key"])
+    existing_token = get_token_by_chat_id(connection, synthetic_chat_id)
+    if existing_token:
+        return existing_token
+
+    username = f"License {license_key['key'][-5:]}"
+    return create_token_record(connection, synthetic_chat_id, username)
 
 
 def get_or_create_token_record(connection: sqlite3.Connection, chat_id: int, username: str) -> dict:
@@ -1018,26 +1033,54 @@ def activate_token(token: str, device_id: str) -> dict:
 
     with db_lock:
         with get_connection() as connection:
+            if token.upper().startswith("KEY-"):
+                normalized_key = token.upper()
+                license_key = get_license_key_by_value(connection, normalized_key)
+                if not license_key:
+                    return {"valid": False, "error": "KEY_NOT_FOUND", "token": None}
+
+                if license_key["status"] == "unused":
+                    token_data = create_token_record_for_license_key(connection, license_key)
+                    updated_token = apply_plan_to_token_record(connection, token_data, build_plan_from_license_key(license_key))
+                    connection.execute(
+                        """
+                        UPDATE license_keys
+                        SET status = 'redeemed',
+                            redeemed_at = ?,
+                            redeemed_by_chat_id = ?,
+                            redeemed_token = ?
+                        WHERE key = ?
+                        """,
+                        (now_iso(), generate_license_chat_id(normalized_key), updated_token["token"], normalized_key),
+                    )
+                    connection.commit()
+                    token = updated_token["token"]
+                else:
+                    redeemed_token = license_key.get("redeemed_token")
+                    if not redeemed_token:
+                        return {"valid": False, "error": "KEY_ALREADY_USED", "token": None}
+                    token = redeemed_token
+
             token_data = get_token_by_value(connection, token)
             if not token_data:
-                return {"valid": False, "error": "TOKEN_NOT_FOUND"}
+                return {"valid": False, "error": "TOKEN_NOT_FOUND", "token": None}
 
             if token_data.get("revoked_at"):
-                return {"valid": False, "error": "TOKEN_REVOKED"}
+                return {"valid": False, "error": "TOKEN_REVOKED", "token": None}
 
             if token_data.get("subscription_status") != "active":
-                return {"valid": False, "error": "SUBSCRIPTION_INACTIVE"}
+                return {"valid": False, "error": "SUBSCRIPTION_INACTIVE", "token": None}
 
             if is_subscription_expired(token_data.get("subscription_expires_at")):
-                return {"valid": False, "error": "SUBSCRIPTION_EXPIRED"}
+                return {"valid": False, "error": "SUBSCRIPTION_EXPIRED", "token": None}
 
             bound_token = get_token_by_device_id(connection, device_id)
             if bound_token and bound_token["token"] != token:
-                return {"valid": False, "error": "DEVICE_ALREADY_BOUND"}
+                return {"valid": False, "error": "DEVICE_ALREADY_BOUND", "token": None}
 
             activated_device_id = token_data.get("activated_device_id")
             if activated_device_id and activated_device_id != device_id:
-                return {"valid": False, "error": "TOKEN_ALREADY_BOUND"}
+                return {"valid": False, "error": "TOKEN_ALREADY_BOUND", "token": None}
 
             if not activated_device_id:
                 connection.execute(
@@ -1060,6 +1103,7 @@ def activate_token(token: str, device_id: str) -> dict:
                 "valid": True,
                 "username": token_data.get("username"),
                 "error": None,
+                "token": token,
             }
 
 

@@ -52,6 +52,7 @@ pub struct ValidateRequest {
 pub struct ValidateResponse {
     pub valid: bool,
     pub username: Option<String>,
+    pub token: Option<String>,
     pub error: Option<String>,
 }
 
@@ -194,6 +195,7 @@ async fn validate_token(body: web::Json<ValidateRequest>, data: web::Data<AppSta
         return HttpResponse::Ok().json(ValidateResponse {
             valid: false,
             username: None,
+            token: None,
             error: Some("DEVICE_ID_REQUIRED".to_string()),
         });
     }
@@ -202,6 +204,7 @@ async fn validate_token(body: web::Json<ValidateRequest>, data: web::Data<AppSta
         return HttpResponse::Ok().json(ValidateResponse {
             valid: false,
             username: None,
+            token: None,
             error: Some("INVALID_TOKEN_FORMAT".to_string()),
         });
     }
@@ -227,6 +230,7 @@ async fn validate_token(body: web::Json<ValidateRequest>, data: web::Data<AppSta
     HttpResponse::Ok().json(ValidateResponse {
         valid: false,
         username: None,
+        token: None,
         error: Some("VALIDATION_UNAVAILABLE".to_string()),
     })
 }

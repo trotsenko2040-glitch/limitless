@@ -65,7 +65,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         throw new Error(resolveAuthError(data.error));
       }
 
-      onAuth(token.trim());
+      onAuth(data.token || token.trim());
     } catch (err: any) {
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
         setError(resolveAuthError('VALIDATION_UNAVAILABLE'));
@@ -124,7 +124,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <input
                 type="text"
                 className="auth-input"
-                placeholder="Вставьте токен из Telegram-бота"
+                placeholder="Вставьте токен или ключ из Telegram-бота"
                 value={token}
                 onChange={(e) => {
                   setToken(e.target.value);

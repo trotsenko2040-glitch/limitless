@@ -10,6 +10,10 @@ pub struct AuthToken {
 }
 
 pub fn validate_token_format(token: &str) -> bool {
+    if validate_license_key_format(token) {
+        return true;
+    }
+
     let mut parts = token.split('-');
     let Some(prefix) = parts.next() else {
         return false;
@@ -25,11 +29,22 @@ pub fn validate_token_format(token: &str) -> bool {
         return false;
     }
 
-    prefix == "LMT"
+    prefix.eq_ignore_ascii_case("LMT")
         && timestamp.len() == 13
         && timestamp.chars().all(|ch| ch.is_ascii_digit())
         && random_part.len() == 16
         && random_part
             .chars()
-            .all(|ch| matches!(ch, '0'..='9' | 'a'..='f'))
+            .all(|ch| ch.is_ascii_hexdigit())
+}
+
+fn validate_license_key_format(token: &str) -> bool {
+    let parts: Vec<&str> = token.split('-').collect();
+    if parts.len() != 4 || !parts[0].eq_ignore_ascii_case("KEY") {
+        return false;
+    }
+
+    parts[1..]
+        .iter()
+        .all(|part| part.len() == 5 && part.chars().all(|ch| ch.is_ascii_alphanumeric()))
 }

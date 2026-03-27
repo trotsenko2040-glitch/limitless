@@ -77,6 +77,9 @@ const App: React.FC = () => {
         }
 
         if (data.valid) {
+          if (data.token && data.token !== token) {
+            saveAuthToken(data.token);
+          }
           setAuthError('');
           setIsBoundToToken(true);
           setShowAuthPage(false);
