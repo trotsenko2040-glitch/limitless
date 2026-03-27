@@ -20,7 +20,7 @@
   width: 100%;
   max-width: 440px;
   margin: auto;
-  padding: 48px 40px;
+  padding: 56px 40px 48px;
   background: var(--bg-glass);
   backdrop-filter: blur(40px);
   border: 1px solid var(--border-primary);
@@ -58,12 +58,12 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin-bottom: 34px;
+  margin: 20px 0 40px;
 }
 
 .auth-logo-wordmark {
   display: block;
-  width: min(100%, 254px);
+  width: min(100%, 286px);
   height: auto;
   filter: drop-shadow(0 12px 30px rgba(109, 53, 236, 0.18));
 }
@@ -79,7 +79,7 @@
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .auth-input-wrapper {
@@ -178,7 +178,7 @@
   cursor: pointer;
   transition: all var(--transition-base);
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .auth-button::before {
@@ -223,7 +223,7 @@
 }
 
 .auth-footer {
-  margin-top: 28px;
+  margin-top: 34px;
   text-align: center;
   font-size: 13px;
   color: var(--text-tertiary);
@@ -280,7 +280,7 @@
 @media (max-width: 640px) {
   .auth-card {
     max-width: none;
-    padding: 32px 24px;
+    padding: 38px 24px 32px;
     border-radius: 20px;
   }
 
@@ -290,11 +290,11 @@
   }
 
   .auth-logo {
-    margin-bottom: 28px;
+    margin: 18px 0 32px;
   }
 
   .auth-logo-wordmark {
-    width: min(100%, 220px);
+    width: min(100%, 242px);
   }
 
   .auth-subtitle {
@@ -314,11 +314,11 @@
 
   .auth-button {
     min-height: 52px;
-    margin-top: 4px;
+    margin-top: 8px;
   }
 
   .auth-footer {
-    margin-top: 20px;
+    margin-top: 24px;
     line-height: 1.5;
   }
 
@@ -337,6 +337,6 @@
   }
 
   .auth-card {
-    padding: 28px 18px;
+    padding: 34px 18px 28px;
   }
 }
