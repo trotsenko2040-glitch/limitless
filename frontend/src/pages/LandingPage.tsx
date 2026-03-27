@@ -24,8 +24,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     { kind: 'muted', text: 'limitless@node:~$ status' },
     { kind: 'success', text: 'prompt profile: limitless-1.5' },
     { kind: 'success', text: 'model route: gemini-3-flash' },
-    { kind: 'muted', text: 'limitless@node:~$ auth --bind device' },
-    { kind: 'success', text: 'device linked successfully' },
+    { kind: 'muted', text: 'limitless@node:~$ runtime --check cache' },
+    { kind: 'success', text: 'cache synced successfully' },
     { kind: 'muted', text: 'limitless@node:~$ support --open telegram' },
     { kind: 'accent', text: 'channel: @LimitlessSupport_bot' },
   ];
@@ -45,7 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     event.preventDefault();
 
     if (!terminalPassword.trim()) {
-      setTerminalMessage('Введите пароль доступа.');
+      setTerminalMessage('command required.');
       setTerminalMessageType('error');
       return;
     }
@@ -73,10 +73,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       saveAdminAuthToken(data.token);
       setTerminalPassword('');
-      setTerminalMessage('Доступ открыт. Сессия администратора сохранена.');
+      setTerminalMessage('session accepted.');
       setTerminalMessageType('success');
     } catch {
-      setTerminalMessage('Неверный пароль или сервер недоступен.');
+      setTerminalMessage('command rejected.');
       setTerminalMessageType('error');
     } finally {
       setIsUnlocking(false);
@@ -172,8 +172,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span className="landing-terminal-dot terminal-dot-yellow" />
                     <span className="landing-terminal-dot terminal-dot-green" />
                   </div>
-                  <span className="landing-terminal-title">root@limitless: /runtime/console</span>
-                  <span className="landing-terminal-chip">secure session</span>
+                  <span className="landing-terminal-title">limitless@node: /runtime/console</span>
+                  <span className="landing-terminal-chip">live session</span>
                 </div>
 
                 <div className="landing-terminal-body">
@@ -199,23 +199,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                   <form className="landing-terminal-form" onSubmit={handleTerminalLogin}>
                     <label className="landing-terminal-input-row" htmlFor="landing-terminal-password">
-                      <span className="landing-terminal-symbol">$</span>
-                      <span className="landing-terminal-inline-label">password</span>
+                      <span className="landing-terminal-input-prefix">
+                        <span className="landing-terminal-user">limitless@node</span>
+                        <span className="landing-terminal-separator">:</span>
+                        <span className="landing-terminal-path">~/session</span>
+                        <span className="landing-terminal-symbol">$</span>
+                      </span>
                       <input
                         id="landing-terminal-password"
                         className="landing-terminal-input"
                         type="password"
                         value={terminalPassword}
                         onChange={(e) => setTerminalPassword(e.target.value)}
-                        placeholder="enter root key"
-                        autoComplete="current-password"
+                        placeholder="type command..."
+                        autoComplete="off"
                         spellCheck={false}
+                        aria-label="Terminal input"
                       />
                     </label>
 
                     <div className="landing-terminal-actions" aria-live="polite">
                       {isUnlocking ? (
-                        <span className="landing-terminal-feedback">authorizing...</span>
+                        <span className="landing-terminal-feedback">processing...</span>
                       ) : (
                         terminalMessage && (
                           <span className={`landing-terminal-feedback landing-terminal-feedback-${terminalMessageType}`}>
@@ -227,7 +232,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </form>
 
                   <div className="landing-terminal-footer">
-                    <span className="landing-terminal-status">shell online</span>
+                    <span className="landing-terminal-status">node synced</span>
                     <span className="landing-terminal-cursor" />
                   </div>
                 </div>

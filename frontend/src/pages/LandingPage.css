@@ -438,7 +438,7 @@
 
 .landing-terminal-input-row {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
@@ -447,10 +447,12 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.landing-terminal-inline-label {
-  color: rgba(220, 226, 255, 0.66);
-  font-size: 12px;
-  text-transform: lowercase;
+.landing-terminal-input-prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .landing-terminal-input {
@@ -899,6 +901,16 @@
     align-items: flex-start;
   }
 
+  .landing-terminal-input-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .landing-terminal-input-prefix {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .landing-section {
     padding-top: 28px;
   }
@@ -1071,11 +1083,7 @@
     font-size: 12px;
   }
 
-  .landing-terminal-input-row {
-    grid-template-columns: auto 1fr;
-  }
-
-  .landing-terminal-inline-label {
-    display: none;
+  .landing-terminal-input-prefix {
+    font-size: 11px;
   }
 }

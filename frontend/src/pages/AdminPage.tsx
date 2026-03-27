@@ -46,6 +46,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const visibleError = secretMode && error
+    ? (password.trim() ? 'command rejected.' : 'input required.')
+    : error;
+  const visibleSuccessMessage = secretMode && successMessage
+    ? 'session accepted.'
+    : successMessage;
+
   const formattedUpdatedAt = useMemo(() => {
     if (!updatedAt) {
       return 'Еще не сохранялось';
@@ -284,8 +291,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
             </div>
           </div>
 
-          {error && <div className="admin-banner admin-banner-error">{error}</div>}
-          {successMessage && <div className="admin-banner admin-banner-success">{successMessage}</div>}
+          {visibleError && <div className="admin-banner admin-banner-error">{visibleError}</div>}
+          {visibleSuccessMessage && <div className="admin-banner admin-banner-success">{visibleSuccessMessage}</div>}
 
           {isCheckingSession ? (
             <div className="admin-loading">Проверяю доступ администратора...</div>
@@ -301,23 +308,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
                   </div>
 
                   <div className="admin-console-body">
-                    <p className="admin-console-line">Last login: restricted session</p>
-                    <p className="admin-console-line">limitless@node:~$ sudo -i</p>
+                    <p className="admin-console-line">Last sync: runtime ready</p>
+                    <p className="admin-console-line">limitless@node:~$ connect --session</p>
                     <label className="admin-console-prompt" htmlFor="terminal-password">
-                      <span>password:</span>
+                      <span className="admin-console-prefix">limitless@node:~/runtime$</span>
                       <input
                         id="terminal-password"
                         className="admin-console-input"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
+                        autoComplete="off"
+                        placeholder="type command..."
+                        aria-label="Console input"
                         spellCheck={false}
                         autoFocus
                       />
                     </label>
                     <div className="admin-console-status" aria-live="polite">
-                      {isLoggingIn ? 'authorizing...' : ''}
+                      {isLoggingIn ? 'processing...' : ''}
                     </div>
                   </div>
                 </div>
