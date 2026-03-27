@@ -1,0 +1,36 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iconPanel" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171A31"/>
+      <stop offset="1" stop-color="#090E1D"/>
+    </linearGradient>
+    <linearGradient id="iconBracket" x1="146" y1="132" x2="300" y2="314" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E2D8FF"/>
+      <stop offset="0.5" stop-color="#B38EFF"/>
+      <stop offset="1" stop-color="#7A41F4"/>
+    </linearGradient>
+    <linearGradient id="iconLoop" x1="172" y1="154" x2="334" y2="316" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2EBFF"/>
+      <stop offset="0.5" stop-color="#BA95FF"/>
+      <stop offset="1" stop-color="#6C32EB"/>
+    </linearGradient>
+    <filter id="iconGlow" x="24" y="24" width="464" height="464" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="30" result="effect1_foregroundBlur"/>
+    </filter>
+  </defs>
+
+  <rect x="64" y="64" width="384" height="384" rx="118" fill="url(#iconPanel)"/>
+  <rect x="64" y="64" width="384" height="384" rx="118" stroke="#B89EFF" stroke-opacity="0.16"/>
+
+  <g filter="url(#iconGlow)" opacity="0.82">
+    <circle cx="256" cy="256" r="102" fill="#6E35EC"/>
+  </g>
+
+  <path d="M196 166L138 256L196 346" stroke="url(#iconBracket)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M316 166L374 256L316 346" stroke="url(#iconBracket)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M176 256C194 212 238 212 256 256C274 300 318 300 336 256C318 212 274 212 256 256C238 300 194 300 176 256Z" stroke="url(#iconLoop)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="244" y="244" width="24" height="24" rx="7" fill="#F5F0FF"/>
+  <path d="M132 388H380" stroke="#5D4A9E" stroke-opacity="0.44" stroke-width="3"/>
+</svg>
