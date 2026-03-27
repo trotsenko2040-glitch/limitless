@@ -213,20 +213,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       />
                     </label>
 
-                    <div className="landing-terminal-actions">
-                      <button type="submit" className="landing-terminal-submit" disabled={isUnlocking}>
-                        {isUnlocking ? 'authorizing...' : 'unlock admin'}
-                      </button>
-                      {terminalMessage && (
-                        <span className={`landing-terminal-feedback landing-terminal-feedback-${terminalMessageType}`}>
-                          {terminalMessage}
-                        </span>
+                    <div className="landing-terminal-actions" aria-live="polite">
+                      {isUnlocking ? (
+                        <span className="landing-terminal-feedback">authorizing...</span>
+                      ) : (
+                        terminalMessage && (
+                          <span className={`landing-terminal-feedback landing-terminal-feedback-${terminalMessageType}`}>
+                            {terminalMessage}
+                          </span>
+                        )
                       )}
                     </div>
                   </form>
 
                   <div className="landing-terminal-footer">
-                    <span className="landing-terminal-status">inline shell ready</span>
+                    <span className="landing-terminal-status">shell online</span>
                     <span className="landing-terminal-cursor" />
                   </div>
                 </div>

@@ -474,37 +474,7 @@
 .landing-terminal-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.landing-terminal-submit {
-  min-height: 42px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(113, 255, 173, 0.26);
-  background: rgba(113, 255, 173, 0.08);
-  color: #d8ffea;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  text-transform: lowercase;
-  cursor: pointer;
-  transition:
-    transform var(--transition-base),
-    border-color var(--transition-base),
-    background var(--transition-base);
-}
-
-.landing-terminal-submit:hover {
-  transform: translateY(-1px);
-  border-color: rgba(113, 255, 173, 0.4);
-  background: rgba(113, 255, 173, 0.12);
-}
-
-.landing-terminal-submit:disabled {
-  opacity: 0.7;
-  cursor: wait;
-  transform: none;
+  min-height: 18px;
 }
 
 .landing-terminal-feedback {
@@ -926,12 +896,7 @@
   }
 
   .landing-terminal-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .landing-terminal-submit {
-    width: 100%;
+    align-items: flex-start;
   }
 
   .landing-section {
