@@ -370,9 +370,37 @@
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.65;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   opacity: 0;
   animation: fadeInUp 0.8s ease-out 0.34s both;
   transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.landing-support-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(109, 40, 217, 0.22));
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.landing-support-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(167, 139, 250, 0.42);
+  box-shadow: 0 12px 24px rgba(76, 29, 149, 0.18);
 }
 
 .landing-support-note:hover {
@@ -570,6 +598,15 @@
   .landing-pill-btn,
   .landing-primary-btn,
   .landing-secondary-btn {
+    width: 100%;
+  }
+
+  .landing-support-note {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-support-btn {
     width: 100%;
   }
 }

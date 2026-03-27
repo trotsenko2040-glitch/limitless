@@ -12,11 +12,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   navActionLabel = 'Войти',
   primaryActionLabel = 'Войти по токену',
 }) => {
+  const supportBotUrl = 'https://t.me/LimitlessSupport_bot';
+
   const scrollToSection = (sectionId: string) => {
     document.getElementById(sectionId)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     });
+  };
+
+  const openSupportBot = () => {
+    window.open(supportBotUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -50,7 +56,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button type="button" className="landing-nav-link" onClick={() => scrollToSection('about')}>
               О нас
             </button>
-            <button type="button" className="landing-nav-link" onClick={() => scrollToSection('support')}>
+            <button type="button" className="landing-nav-link" onClick={openSupportBot}>
               Поддержка
             </button>
           </div>
@@ -77,7 +83,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button type="button" className="landing-pill-btn" onClick={() => scrollToSection('about')}>
               О нас
             </button>
-            <button type="button" className="landing-pill-btn" onClick={() => scrollToSection('support')}>
+            <button type="button" className="landing-pill-btn" onClick={openSupportBot}>
               Поддержка
             </button>
           </div>
@@ -164,6 +170,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="landing-support-note">
             Если у вас вопрос по оплате, токену или доступу к Limitless, просто напишите в Telegram-поддержку.
+            <button type="button" className="landing-support-btn" onClick={openSupportBot}>
+              Открыть помощь в Telegram
+            </button>
           </div>
         </section>
       </main>
