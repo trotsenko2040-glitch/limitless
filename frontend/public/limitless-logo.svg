@@ -1,46 +1,43 @@
-<svg width="1600" height="520" viewBox="0 0 1600 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="1500" height="340" viewBox="0 0 1500 340" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="panelFill" x1="48" y1="46" x2="336" y2="334" gradientUnits="userSpaceOnUse">
+    <linearGradient id="panelFill" x1="38" y1="32" x2="312" y2="308" gradientUnits="userSpaceOnUse">
       <stop stop-color="#171A31"/>
       <stop offset="1" stop-color="#0A0E1E"/>
     </linearGradient>
-    <linearGradient id="bracketStroke" x1="118" y1="122" x2="264" y2="302" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bracketStroke" x1="106" y1="100" x2="246" y2="238" gradientUnits="userSpaceOnUse">
       <stop stop-color="#DDD2FF"/>
       <stop offset="0.55" stop-color="#AE8AFF"/>
       <stop offset="1" stop-color="#7A42F4"/>
     </linearGradient>
-    <linearGradient id="loopStroke" x1="150" y1="146" x2="284" y2="276" gradientUnits="userSpaceOnUse">
+    <linearGradient id="loopStroke" x1="138" y1="118" x2="278" y2="222" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F0E8FF"/>
       <stop offset="0.5" stop-color="#B187FF"/>
       <stop offset="1" stop-color="#6E33EC"/>
     </linearGradient>
-    <linearGradient id="wordmarkFill" x1="418" y1="168" x2="1252" y2="332" gradientUnits="userSpaceOnUse">
+    <linearGradient id="wordmarkFill" x1="392" y1="96" x2="1218" y2="236" gradientUnits="userSpaceOnUse">
       <stop stop-color="#E4DAFF"/>
       <stop offset="0.45" stop-color="#B18CFF"/>
       <stop offset="1" stop-color="#6E38EF"/>
     </linearGradient>
-    <filter id="iconGlow" x="8" y="10" width="364" height="362" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <filter id="iconGlow" x="0" y="0" width="360" height="340" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix"/>
       <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-      <feGaussianBlur stdDeviation="26" result="effect1_foregroundBlur"/>
+      <feGaussianBlur stdDeviation="24" result="effect1_foregroundBlur"/>
     </filter>
   </defs>
 
   <g filter="url(#iconGlow)" opacity="0.72">
-    <circle cx="190" cy="190" r="96" fill="#6E35EC"/>
+    <circle cx="176" cy="170" r="88" fill="#6E35EC"/>
   </g>
 
-  <rect x="48" y="48" width="284" height="284" rx="86" fill="url(#panelFill)"/>
-  <rect x="48" y="48" width="284" height="284" rx="86" stroke="#B89EFF" stroke-opacity="0.18"/>
+  <rect x="38" y="30" width="276" height="276" rx="84" fill="url(#panelFill)"/>
+  <rect x="38" y="30" width="276" height="276" rx="84" stroke="#B89EFF" stroke-opacity="0.18"/>
 
-  <path d="M150 128L104 190L150 252" stroke="url(#bracketStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M230 128L276 190L230 252" stroke="url(#bracketStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M154 190C170 152 208 152 224 190C240 228 278 228 294 190C278 152 240 152 224 190C208 228 170 228 154 190Z" stroke="url(#loopStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="182" y="182" width="16" height="16" rx="5" fill="#F2ECFF"/>
-  <path d="M94 286H286" stroke="#5E4A9F" stroke-opacity="0.42" stroke-width="2"/>
+  <path d="M138 110L94 170L138 230" stroke="url(#bracketStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M214 110L258 170L214 230" stroke="url(#bracketStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M142 170C158 132 196 132 212 170C228 208 266 208 282 170C266 132 228 132 212 170C196 208 158 208 142 170Z" stroke="url(#loopStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="170" y="162" width="16" height="16" rx="5" fill="#F2ECFF"/>
+  <path d="M86 264H266" stroke="#5E4A9F" stroke-opacity="0.42" stroke-width="2"/>
 
-  <g>
-    <text x="418" y="236" fill="url(#wordmarkFill)" font-family="'Segoe UI', Arial, sans-serif" font-size="124" font-weight="900" letter-spacing="18">LIMITLESS</text>
-    <text x="422" y="314" fill="#8C90B1" font-family="'Segoe UI', Arial, sans-serif" font-size="38" font-weight="700" letter-spacing="10">PROMPT MODE / OPEN INTELLIGENCE</text>
-  </g>
+  <text x="390" y="214" fill="url(#wordmarkFill)" font-family="'Segoe UI', Arial, sans-serif" font-size="128" font-weight="900" letter-spacing="18">LIMITLESS</text>
 </svg>
