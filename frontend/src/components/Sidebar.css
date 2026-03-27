@@ -31,7 +31,13 @@
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+}
+
+.sidebar-brand-logo {
+  display: block;
+  width: 154px;
+  height: auto;
+  filter: drop-shadow(0 6px 18px rgba(109, 53, 236, 0.16));
 }
 
 .sidebar-brand-text {
@@ -283,6 +289,10 @@
     letter-spacing: 2px;
   }
 
+  .sidebar-brand-logo {
+    width: 142px;
+  }
+
   .sidebar-close,
   .new-chat-button,
   .sidebar-footer-btn {
@@ -306,6 +316,10 @@
 
   .sidebar-header {
     padding: calc(16px + var(--safe-top)) 14px 12px;
+  }
+
+  .sidebar-brand-logo {
+    width: 134px;
   }
 
   .new-chat-button {

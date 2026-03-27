@@ -40,17 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
-            <path d="M20 4L36 12V28L20 36L4 28V12L20 4Z" stroke="url(#sb-grad)" strokeWidth="2" fill="none" />
-            <path d="M20 14L28 18V26L20 30L12 26V18L20 14Z" fill="url(#sb-grad)" opacity="0.4" />
-            <defs>
-              <linearGradient id="sb-grad" x1="4" y1="4" x2="36" y2="36">
-                <stop stopColor="#a78bfa" />
-                <stop offset="1" stopColor="#6d28d9" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="sidebar-brand-text">LIMITLESS</span>
+          <img className="sidebar-brand-logo" src="/limitless-logo.svg" alt="Limitless" />
         </div>
         <button className="sidebar-close" onClick={onClose}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

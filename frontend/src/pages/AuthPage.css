@@ -73,6 +73,19 @@
   animation: float 4s ease-in-out infinite;
 }
 
+.auth-logo-mark {
+  display: block;
+  width: 46px;
+  height: 46px;
+}
+
+.auth-logo-wordmark {
+  display: block;
+  width: min(100%, 244px);
+  height: auto;
+  filter: drop-shadow(0 12px 30px rgba(109, 53, 236, 0.18));
+}
+
 .auth-title {
   font-size: 28px;
   font-weight: 800;
@@ -312,6 +325,15 @@
     width: 64px;
     height: 64px;
     border-radius: 18px;
+  }
+
+  .auth-logo-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .auth-logo-wordmark {
+    width: min(100%, 220px);
   }
 
   .auth-title {

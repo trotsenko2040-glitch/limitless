@@ -100,19 +100,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
         <div className="auth-logo">
           <div className="auth-logo-icon">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <path d="M20 4L36 12V28L20 36L4 28V12L20 4Z" stroke="url(#logo-grad)" strokeWidth="2" fill="none" />
-              <path d="M20 10L30 16V26L20 32L10 26V16L20 10Z" fill="url(#logo-grad)" opacity="0.3" />
-              <path d="M20 16L25 19V25L20 28L15 25V19L20 16Z" fill="url(#logo-grad)" />
-              <defs>
-                <linearGradient id="logo-grad" x1="4" y1="4" x2="36" y2="36">
-                  <stop stopColor="#a78bfa" />
-                  <stop offset="1" stopColor="#6d28d9" />
-                </linearGradient>
-              </defs>
-            </svg>
+            <img className="auth-logo-mark" src="/limitless-icon.svg" alt="Limitless icon" />
           </div>
-          <h1 className="auth-title">LIMITLESS</h1>
+          <img className="auth-logo-wordmark" src="/limitless-logo.svg" alt="Limitless" />
           <p className="auth-subtitle">Custom Prompt Access</p>
         </div>
 

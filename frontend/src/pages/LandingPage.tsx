@@ -95,19 +95,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <div className="landing-nav-shell">
         <nav className="landing-nav-capsule">
           <div className="landing-brand">
-            <div className="landing-brand-icon">
-              <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
-                <path d="M20 4L36 12V28L20 36L4 28V12L20 4Z" stroke="url(#landing-nav-grad)" strokeWidth="2" fill="none" />
-                <path d="M20 14L28 18V26L20 30L12 26V18L20 14Z" fill="url(#landing-nav-grad)" opacity="0.35" />
-                <defs>
-                  <linearGradient id="landing-nav-grad" x1="4" y1="4" x2="36" y2="36">
-                    <stop stopColor="#b9a3ff" />
-                    <stop offset="1" stopColor="#6d28d9" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-            <span>LIMITLESS</span>
+            <img className="landing-brand-logo" src="/limitless-logo.svg" alt="Limitless" />
           </div>
 
           <div className="landing-nav-links">
