@@ -136,6 +136,13 @@ function saveLegacyAccountSnapshot(snapshot: AccountSnapshot): void {
   }
 }
 
+function clearLegacyAccountSnapshot(): void {
+  localStorage.removeItem(LEGACY_CHATS_KEY);
+  localStorage.removeItem(LEGACY_SETTINGS_KEY);
+  localStorage.removeItem(LEGACY_CURRENT_CHAT_KEY);
+  localStorage.removeItem(LEGACY_PROFILE_KEY);
+}
+
 export function hasMeaningfulAccountData(snapshot: AccountSnapshot): boolean {
   return (
     snapshot.chats.length > 0 ||
@@ -189,6 +196,7 @@ export function migrateLegacyAccountData(token: string): AccountSnapshot {
   const legacySnapshot = loadLegacyAccountSnapshot();
   if (hasMeaningfulAccountData(legacySnapshot)) {
     saveAccountSnapshot(legacySnapshot, token);
+    clearLegacyAccountSnapshot();
   }
 
   return loadAccountSnapshot(token);

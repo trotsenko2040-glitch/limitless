@@ -14,7 +14,6 @@ import {
   loadOrCreateDeviceId,
   loadProfile,
   saveAdminAuthToken,
-  migrateAccountStorage,
   saveAuthToken,
 } from './utils/storage';
 import './styles/globals.css';
@@ -92,7 +91,6 @@ const App: React.FC = () => {
 
         if (data.valid) {
           if (data.token && data.token !== token) {
-            migrateAccountStorage(token, data.token);
             saveAuthToken(data.token);
           }
           setAuthError('');
@@ -142,10 +140,6 @@ const App: React.FC = () => {
   };
 
   const handleAuth = (token: string) => {
-    const previousToken = loadAuthToken();
-    if (previousToken && previousToken !== token) {
-      migrateAccountStorage(previousToken, token);
-    }
     saveAuthToken(token);
     setIsBoundToToken(true);
     setAuthError('');
