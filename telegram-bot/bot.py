@@ -592,6 +592,17 @@ def list_promo_codes(connection: sqlite3.Connection, include_inactive: bool = Fa
     return [dict(row) for row in rows]
 
 
+def delete_promo_code(connection: sqlite3.Connection, code: str):
+    normalized_code = normalize_promo_code(code)
+    promo = get_promo_code(connection, normalized_code)
+    if not promo:
+        return None
+
+    connection.execute("DELETE FROM chat_promos WHERE promo_code = ?", (normalized_code,))
+    connection.execute("DELETE FROM promo_codes WHERE code = ?", (normalized_code,))
+    return promo
+
+
 def has_chat_used_promo(connection: sqlite3.Connection, chat_id: int, promo_code: str) -> bool:
     row = connection.execute(
         """
@@ -1313,6 +1324,7 @@ def build_admin_panel_text() -> str:
         "/adminlist — список админов\n"
         "/createkey &lt;30|90|lifetime|days:N&gt; [count] — создать ключи\n"
         "/createpromo &lt;CODE&gt; &lt;discount%&gt; [all|subscription_30d|subscription_90d|lifetime_access] [max_uses] — создать промокод\n"
+        "/deletepromo &lt;CODE&gt; — удалить промокод\n"
         "/keylist [unused|redeemed|all] [limit] — список ключей\n"
         "/promolist [active|all] [limit] — список промокодов\n"
         "/extend &lt;token&gt; &lt;days&gt; — вручную продлить токен\n\n"
@@ -1798,6 +1810,32 @@ def handle_promo_list(message):
     bot.send_message(
         message.chat.id,
         build_promo_list_message(promos, f"Промокоды: {mode}"),
+        parse_mode="HTML",
+    )
+
+
+@bot.message_handler(commands=["deletepromo"])
+def handle_delete_promo(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) != 2:
+        bot.send_message(message.chat.id, "Использование: /deletepromo <CODE>")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            deleted_promo = delete_promo_code(connection, parts[1])
+            if not deleted_promo:
+                bot.send_message(message.chat.id, "Промокод не найден.")
+                return
+            connection.commit()
+
+    bot.send_message(
+        message.chat.id,
+        f"<b>Промокод удален</b>\n\n{format_promo_summary(deleted_promo)}",
         parse_mode="HTML",
     )
 
