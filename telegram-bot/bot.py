@@ -756,6 +756,19 @@ def get_or_create_token_record(connection: sqlite3.Connection, chat_id: int, use
     return create_token_record(connection, chat_id, username)
 
 
+def ensure_admin_lifetime_token(connection: sqlite3.Connection, chat_id: int, username: str) -> dict:
+    token_data = get_or_create_token_record(connection, chat_id, username)
+    return apply_plan_to_token_record(connection, token_data, dict(PLANS_BY_ID["lifetime_access"]))
+
+
+def ensure_primary_admin_tokens() -> None:
+    with db_lock:
+        with get_connection() as connection:
+            for admin_id in ADMIN_CHAT_IDS:
+                ensure_admin_lifetime_token(connection, admin_id, f"admin_{admin_id}")
+            connection.commit()
+
+
 def format_subscription_status(token_data: dict) -> str:
     if token_data.get("revoked_at"):
         return f"Токен отозван: {token_data['revoked_at']}"
@@ -1435,10 +1448,15 @@ def handle_redeem(message):
 @bot.message_handler(commands=["token", "mytoken"])
 def handle_token(message):
     chat_id = message.chat.id
+    admin_access = is_admin(message.from_user.id)
+    username = message.from_user.username or message.from_user.first_name or "User"
 
     with db_lock:
         with get_connection() as connection:
             token_data = get_token_by_chat_id(connection, chat_id)
+            if admin_access:
+                token_data = ensure_admin_lifetime_token(connection, chat_id, username)
+                connection.commit()
 
     if not token_data:
         bot.send_message(
@@ -1555,6 +1573,11 @@ def handle_add_admin(message):
         with get_connection() as connection:
             existing_admin = get_admin_user(connection, target_user_id)
             admin_record = add_admin_user(connection, target_user_id, username, message.from_user.id)
+            admin_token = ensure_admin_lifetime_token(
+                connection,
+                target_user_id,
+                username or f"admin_{target_user_id}",
+            )
             connection.commit()
 
     status_text = "обновлен" if existing_admin else "добавлен"
@@ -1562,6 +1585,11 @@ def handle_add_admin(message):
     bot.send_message(
         message.chat.id,
         f"<b>Админ {status_text}</b>\n\nID: <code>{target_user_id}</code>\nUsername: {display_name}",
+        parse_mode="HTML",
+    )
+    bot.send_message(
+        message.chat.id,
+        f"<b>Вечный токен админа</b>\n\n{build_token_summary(admin_token)}",
         parse_mode="HTML",
     )
 
@@ -2057,6 +2085,7 @@ def run_flask():
 if __name__ == "__main__":
     init_db()
     migrate_legacy_json()
+    ensure_primary_admin_tokens()
 
     print(f"Limitless Token API started on port {API_PORT}")
     print("Bot started! Polling Telegram API...")
