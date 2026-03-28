@@ -34,6 +34,9 @@ services:
   backend:
     build:
       context: ./rust-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       PORT: 8080
       BOT_API_URL: http://telegram-bot:3001
@@ -42,6 +45,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_TERMINAL_PASSWORD: ${ADMIN_TERMINAL_PASSWORD}
       ADMIN_ACCESS_TOKEN: ${ADMIN_ACCESS_TOKEN}
+      BACKEND_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       PROMPT_CONFIG_PATH: /data/prompt-config.json
       ACCOUNT_STORE_PATH: /data/account-store
     restart: unless-stopped

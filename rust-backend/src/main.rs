@@ -1,6 +1,7 @@
 use actix_cors::Cors;
 use actix_web::rt::time::sleep;
 use actix_web::{http::header, web, App, HttpRequest, HttpResponse, HttpServer};
+use postgres::{Client as PgClient, NoTls};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -13,6 +14,7 @@ mod auth;
 
 const DEFAULT_PROMPT_NAME: &str = "Limitless 1.5";
 const DEFAULT_ADMIN_ACCESS_TOKEN: &str = "ADM-LMT-ROOT-7X91-FB28";
+const DEFAULT_PROMPT_CONFIG_KEY: &str = "default";
 const PROFILE_ADJECTIVES: [&str; 12] = [
     "Neon",
     "Ghost",
@@ -58,12 +60,14 @@ pub struct AppState {
 
 #[derive(Clone)]
 pub struct PromptStore {
+    pub database_url: Option<String>,
     pub primary_path: PathBuf,
     pub fallback_path: PathBuf,
 }
 
 #[derive(Clone)]
 pub struct AccountStore {
+    pub database_url: Option<String>,
     pub primary_base_dir: PathBuf,
     pub fallback_base_dir: PathBuf,
 }
@@ -260,18 +264,28 @@ pub struct HealthResponse {
 }
 
 impl PromptStore {
-    pub fn new(file_path: PathBuf) -> Self {
+    pub fn new(file_path: PathBuf, database_url: Option<String>) -> Self {
         let fallback_path = resolve_runtime_path("prompt-config.json");
         Self {
+            database_url,
             primary_path: file_path,
             fallback_path,
         }
     }
 
     pub fn load(&self) -> Option<PromptConfig> {
+        if let Some(database_url) = self.database_url.as_deref() {
+            if let Ok(Some(config)) = self.load_from_postgres(database_url) {
+                return Some(config);
+            }
+        }
+
         for candidate in [&self.primary_path, &self.fallback_path] {
             if let Ok(content) = fs::read_to_string(candidate) {
                 if let Ok(config) = serde_json::from_str::<PromptConfig>(&content) {
+                    if self.database_url.is_some() {
+                        let _ = self.save(&config);
+                    }
                     return Some(config);
                 }
             }
@@ -283,6 +297,26 @@ impl PromptStore {
     pub fn save(&self, config: &PromptConfig) -> Result<(), String> {
         let payload = serde_json::to_string_pretty(config).map_err(|err| err.to_string())?;
 
+        if let Some(database_url) = self.database_url.as_deref() {
+            match self.save_to_postgres(database_url, &payload, config.updated_at.clone()) {
+                Ok(_) => return Ok(()),
+                Err(primary_error) => {
+                    match write_file_with_parent_creation(&self.primary_path, &payload) {
+                        Ok(_) => {
+                            eprintln!("[limitless-backend] Prompt PostgreSQL save failed, wrote fallback file instead: {primary_error}");
+                            return Ok(());
+                        }
+                        Err(file_error) => {
+                            return write_file_with_parent_creation(&self.fallback_path, &payload)
+                                .map_err(|fallback_error| {
+                                    format!("{primary_error}; file failed: {file_error}; fallback failed: {fallback_error}")
+                                });
+                        }
+                    }
+                }
+            }
+        }
+
         match write_file_with_parent_creation(&self.primary_path, &payload) {
             Ok(_) => Ok(()),
             Err(primary_error) => {
@@ -291,12 +325,54 @@ impl PromptStore {
             }
         }
     }
+
+    fn load_from_postgres(&self, database_url: &str) -> Result<Option<PromptConfig>, String> {
+        let mut client = connect_backend_postgres(database_url)?;
+        let row = client
+            .query_opt(
+                "SELECT payload FROM prompt_configs WHERE config_key = $1 LIMIT 1",
+                &[&DEFAULT_PROMPT_CONFIG_KEY],
+            )
+            .map_err(|err| err.to_string())?;
+
+        match row {
+            Some(row) => {
+                let payload: String = row.get(0);
+                let config = serde_json::from_str::<PromptConfig>(&payload).map_err(|err| err.to_string())?;
+                Ok(Some(config))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn save_to_postgres(
+        &self,
+        database_url: &str,
+        payload: &str,
+        updated_at: Option<String>,
+    ) -> Result<(), String> {
+        let mut client = connect_backend_postgres(database_url)?;
+        client
+            .execute(
+                "
+                INSERT INTO prompt_configs (config_key, payload, updated_at)
+                VALUES ($1, $2, $3)
+                ON CONFLICT(config_key) DO UPDATE SET
+                    payload = EXCLUDED.payload,
+                    updated_at = EXCLUDED.updated_at
+                ",
+                &[&DEFAULT_PROMPT_CONFIG_KEY, &payload, &updated_at],
+            )
+            .map_err(|err| err.to_string())?;
+        Ok(())
+    }
 }
 
 impl AccountStore {
-    pub fn new(base_dir: PathBuf) -> Self {
+    pub fn new(base_dir: PathBuf, database_url: Option<String>) -> Self {
         let fallback_base_dir = resolve_runtime_path("account-store");
         Self {
+            database_url,
             primary_base_dir: base_dir,
             fallback_base_dir,
         }
@@ -318,13 +394,23 @@ impl AccountStore {
     }
 
     pub fn load(&self, token: &str) -> Option<AccountSnapshot> {
+        if let Some(database_url) = self.database_url.as_deref() {
+            if let Ok(Some(snapshot)) = self.load_from_postgres(database_url, token) {
+                return Some(normalize_account_snapshot(snapshot, Some(token)));
+            }
+        }
+
         for candidate in [
             Self::token_file_path(&self.primary_base_dir, token),
             Self::token_file_path(&self.fallback_base_dir, token),
         ] {
             if let Ok(content) = fs::read_to_string(candidate) {
                 if let Ok(snapshot) = serde_json::from_str::<AccountSnapshot>(&content) {
-                    return Some(normalize_account_snapshot(snapshot, Some(token)));
+                    let normalized = normalize_account_snapshot(snapshot, Some(token));
+                    if self.database_url.is_some() {
+                        let _ = self.save(token, &normalized);
+                    }
+                    return Some(normalized);
                 }
             }
         }
@@ -338,6 +424,29 @@ impl AccountStore {
         let primary_path = Self::token_file_path(&self.primary_base_dir, token);
         let fallback_path = Self::token_file_path(&self.fallback_base_dir, token);
 
+        if let Some(database_url) = self.database_url.as_deref() {
+            match self.save_to_postgres(database_url, token, &payload, normalized_snapshot.updated_at.clone()) {
+                Ok(_) => return Ok(()),
+                Err(primary_error) => {
+                    match write_file_with_parent_creation(&primary_path, &payload) {
+                        Ok(_) => {
+                            eprintln!(
+                                "[limitless-backend] Account PostgreSQL save failed for token {}, wrote fallback file instead: {}",
+                                token, primary_error
+                            );
+                            return Ok(());
+                        }
+                        Err(file_error) => {
+                            return write_file_with_parent_creation(&fallback_path, &payload)
+                                .map_err(|fallback_error| {
+                                    format!("{primary_error}; file failed: {file_error}; fallback failed: {fallback_error}")
+                                });
+                        }
+                    }
+                }
+            }
+        }
+
         match write_file_with_parent_creation(&primary_path, &payload) {
             Ok(_) => Ok(()),
             Err(primary_error) => {
@@ -346,6 +455,78 @@ impl AccountStore {
             }
         }
     }
+
+    fn load_from_postgres(&self, database_url: &str, token: &str) -> Result<Option<AccountSnapshot>, String> {
+        let mut client = connect_backend_postgres(database_url)?;
+        let row = client
+            .query_opt(
+                "SELECT payload FROM account_snapshots WHERE token = $1 LIMIT 1",
+                &[&token],
+            )
+            .map_err(|err| err.to_string())?;
+
+        match row {
+            Some(row) => {
+                let payload: String = row.get(0);
+                let snapshot = serde_json::from_str::<AccountSnapshot>(&payload).map_err(|err| err.to_string())?;
+                Ok(Some(snapshot))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn save_to_postgres(
+        &self,
+        database_url: &str,
+        token: &str,
+        payload: &str,
+        updated_at: Option<String>,
+    ) -> Result<(), String> {
+        let mut client = connect_backend_postgres(database_url)?;
+        client
+            .execute(
+                "
+                INSERT INTO account_snapshots (token, payload, updated_at)
+                VALUES ($1, $2, $3)
+                ON CONFLICT(token) DO UPDATE SET
+                    payload = EXCLUDED.payload,
+                    updated_at = EXCLUDED.updated_at
+                ",
+                &[&token, &payload, &updated_at],
+            )
+            .map_err(|err| err.to_string())?;
+        Ok(())
+    }
+}
+
+fn is_postgres_database_url(value: &str) -> bool {
+    let trimmed = value.trim().to_lowercase();
+    trimmed.starts_with("postgres://") || trimmed.starts_with("postgresql://")
+}
+
+fn connect_backend_postgres(database_url: &str) -> Result<PgClient, String> {
+    PgClient::connect(database_url, NoTls).map_err(|err| err.to_string())
+}
+
+fn initialize_backend_database(database_url: &str) -> Result<(), String> {
+    let mut client = connect_backend_postgres(database_url)?;
+    client
+        .batch_execute(
+            "
+            CREATE TABLE IF NOT EXISTS prompt_configs (
+                config_key TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS account_snapshots (
+                token TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT
+            );
+            ",
+        )
+        .map_err(|err| err.to_string())
 }
 
 fn resolve_runtime_path(name: &str) -> PathBuf {
@@ -1129,6 +1310,11 @@ async fn main() -> std::io::Result<()> {
         std::env::var("ADMIN_TERMINAL_PASSWORD").unwrap_or_else(|_| "L1M1tLecc".to_string());
     let admin_access_token =
         std::env::var("ADMIN_ACCESS_TOKEN").unwrap_or_else(|_| DEFAULT_ADMIN_ACCESS_TOKEN.to_string());
+    let backend_database_url = std::env::var("BACKEND_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty() && is_postgres_database_url(value));
     let prompt_config_path =
         std::env::var("PROMPT_CONFIG_PATH").unwrap_or_else(|_| "./data/prompt-config.json".to_string());
     let account_store_path = std::env::var("ACCOUNT_STORE_PATH").unwrap_or_else(|_| {
@@ -1136,6 +1322,19 @@ async fn main() -> std::io::Result<()> {
         derived.set_file_name("account-store");
         derived.to_string_lossy().to_string()
     });
+    let backend_database_url = match backend_database_url {
+        Some(url) => match initialize_backend_database(&url) {
+            Ok(_) => Some(url),
+            Err(error) => {
+                eprintln!(
+                    "[limitless-backend] PostgreSQL backend storage init failed, using file store fallback: {}",
+                    error
+                );
+                None
+            }
+        },
+        None => None,
+    };
 
     let state = web::Data::new(AppState {
         bot_api_url,
@@ -1145,8 +1344,8 @@ async fn main() -> std::io::Result<()> {
             .timeout(Duration::from_secs(12))
             .build()
             .expect("Failed to build HTTP client"),
-        prompt_store: PromptStore::new(PathBuf::from(prompt_config_path)),
-        account_store: AccountStore::new(PathBuf::from(account_store_path)),
+        prompt_store: PromptStore::new(PathBuf::from(prompt_config_path), backend_database_url.clone()),
+        account_store: AccountStore::new(PathBuf::from(account_store_path), backend_database_url.clone()),
         admin_sessions: Arc::new(Mutex::new(HashMap::new())),
         admin_username,
         admin_password,
