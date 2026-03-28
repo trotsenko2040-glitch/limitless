@@ -140,6 +140,8 @@ function resolveAdminError(error?: string): string {
       return 'Сервис пользователей вернул неожиданный ответ. Обычно это значит, что backend и Telegram bot работают на разных версиях.';
     case 'ADMIN_USERS_UNAVAILABLE':
       return 'Сервис пользователей временно недоступен. Проверьте BOT_API_URL и состояние Telegram bot API.';
+    case 'ADMIN_USERS_ROUTE_MISSING':
+      return 'Telegram bot API запущен на старой версии и еще не знает маршрут /api/admin/users. Сделайте redeploy bot service на Render.';
     case 'ADMIN_BRIDGE_UNAUTHORIZED':
       return 'Backend не авторизован в Telegram bot API. Сверьте BOT_INTERNAL_API_KEY в Rust backend и telegram-bot.';
     case 'ADMIN_USER_ACTION_PARSE_FAILED':

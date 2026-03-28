@@ -1,4 +1,5 @@
 use actix_cors::Cors;
+use actix_web::rt::time::sleep;
 use actix_web::{http::header, web, App, HttpRequest, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -462,6 +463,68 @@ fn build_bot_admin_request(
         .header("X-Limitless-Bridge-Key", data.bot_internal_api_key.clone())
 }
 
+fn bridge_error_from_status(status: reqwest::StatusCode, parse_fallback: &str, unavailable_key: &str) -> String {
+    match status.as_u16() {
+        401 => "ADMIN_BRIDGE_UNAUTHORIZED".to_string(),
+        404 => "ADMIN_USERS_ROUTE_MISSING".to_string(),
+        502 | 503 | 504 => unavailable_key.to_string(),
+        _ => parse_fallback.to_string(),
+    }
+}
+
+async fn send_admin_bridge_get_users(
+    data: &web::Data<AppState>,
+    limit: usize,
+    search: String,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let mut last_response: Option<reqwest::Response> = None;
+
+    for attempt in 0..3 {
+        let response = build_bot_admin_request(data, reqwest::Method::GET, "/api/admin/users")
+            .query(&[
+                ("limit", limit.to_string()),
+                ("search", search.clone()),
+            ])
+            .send()
+            .await?;
+
+        if matches!(response.status().as_u16(), 502 | 503 | 504) && attempt < 2 {
+            last_response = Some(response);
+            sleep(Duration::from_millis(900)).await;
+            continue;
+        }
+
+        return Ok(response);
+    }
+
+    Ok(last_response.expect("admin bridge retries should store last response"))
+}
+
+async fn send_admin_bridge_user_action(
+    data: &web::Data<AppState>,
+    path: &str,
+    body: &AdminUserActionRequest,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let mut last_response: Option<reqwest::Response> = None;
+
+    for attempt in 0..3 {
+        let response = build_bot_admin_request(data, reqwest::Method::POST, path)
+            .json(body)
+            .send()
+            .await?;
+
+        if matches!(response.status().as_u16(), 502 | 503 | 504) && attempt < 2 {
+            last_response = Some(response);
+            sleep(Duration::from_millis(900)).await;
+            continue;
+        }
+
+        return Ok(response);
+    }
+
+    Ok(last_response.expect("admin bridge retries should store last response"))
+}
+
 async fn health_check() -> HttpResponse {
     HttpResponse::Ok().json(HealthResponse {
         status: "ok".to_string(),
@@ -677,13 +740,7 @@ async fn admin_list_users(
     let limit = query.limit.unwrap_or(200).clamp(1, 500);
     let search = query.search.clone().unwrap_or_default();
 
-    let response = build_bot_admin_request(&data, reqwest::Method::GET, "/api/admin/users")
-        .query(&[
-            ("limit", limit.to_string()),
-            ("search", search),
-        ])
-        .send()
-        .await;
+    let response = send_admin_bridge_get_users(&data, limit, search).await;
 
     match response {
         Ok(resp) => {
@@ -697,7 +754,7 @@ async fn admin_list_users(
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)
                         .ok()
                         .and_then(|value| value.get("error").and_then(|error| error.as_str()).map(str::to_owned))
-                        .unwrap_or_else(|| "ADMIN_USERS_PARSE_FAILED".to_string());
+                        .unwrap_or_else(|| bridge_error_from_status(status, "ADMIN_USERS_PARSE_FAILED", "ADMIN_USERS_UNAVAILABLE"));
 
                     HttpResponse::BadGateway().json(AdminUsersResponse {
                         success: false,
@@ -726,10 +783,7 @@ async fn admin_ban_user(
         return response;
     }
 
-    let response = build_bot_admin_request(&data, reqwest::Method::POST, "/api/admin/users/ban")
-        .json(&body.0)
-        .send()
-        .await;
+    let response = send_admin_bridge_user_action(&data, "/api/admin/users/ban", &body.0).await;
 
     match response {
         Ok(resp) => {
@@ -743,7 +797,7 @@ async fn admin_ban_user(
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)
                         .ok()
                         .and_then(|value| value.get("error").and_then(|error| error.as_str()).map(str::to_owned))
-                        .unwrap_or_else(|| "ADMIN_USER_ACTION_PARSE_FAILED".to_string());
+                        .unwrap_or_else(|| bridge_error_from_status(status, "ADMIN_USER_ACTION_PARSE_FAILED", "ADMIN_USER_ACTION_UNAVAILABLE"));
 
                     HttpResponse::BadGateway().json(AdminUserActionResponse {
                         success: false,
@@ -770,10 +824,7 @@ async fn admin_unban_user(
         return response;
     }
 
-    let response = build_bot_admin_request(&data, reqwest::Method::POST, "/api/admin/users/unban")
-        .json(&body.0)
-        .send()
-        .await;
+    let response = send_admin_bridge_user_action(&data, "/api/admin/users/unban", &body.0).await;
 
     match response {
         Ok(resp) => {
@@ -787,7 +838,7 @@ async fn admin_unban_user(
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)
                         .ok()
                         .and_then(|value| value.get("error").and_then(|error| error.as_str()).map(str::to_owned))
-                        .unwrap_or_else(|| "ADMIN_USER_ACTION_PARSE_FAILED".to_string());
+                        .unwrap_or_else(|| bridge_error_from_status(status, "ADMIN_USER_ACTION_PARSE_FAILED", "ADMIN_USER_ACTION_UNAVAILABLE"));
 
                     HttpResponse::BadGateway().json(AdminUserActionResponse {
                         success: false,
