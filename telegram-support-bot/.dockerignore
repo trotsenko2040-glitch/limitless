@@ -1,0 +1,5 @@
+__pycache__
+*.pyc
+support.db
+support.db-*
+.git

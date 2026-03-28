@@ -39,7 +39,7 @@ def resolve_writable_path(configured_path: str, fallback_group: str) -> Path:
     return preferred
 
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8605146619:AAHaaOgLqDxUi62VIRMfQCZ13LLE2NGtRMU")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 API_PORT = int(os.getenv("API_PORT", os.getenv("PORT", "3001")))
 DB_FILE = resolve_writable_path(os.getenv("AUTH_DB_PATH", str(Path(__file__).with_name("auth.db"))), "telegram-bot")
 LEGACY_JSON_FILE = resolve_writable_path(
@@ -48,6 +48,9 @@ LEGACY_JSON_FILE = resolve_writable_path(
 )
 PAY_SUPPORT_CONTACT = os.getenv("PAY_SUPPORT_CONTACT", "").strip()
 BOT_INTERNAL_API_KEY = os.getenv("BOT_INTERNAL_API_KEY", "limitless-bridge-key").strip()
+
+if not BOT_TOKEN:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN is required")
 
 PLANS = [
     {

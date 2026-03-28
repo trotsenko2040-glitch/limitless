@@ -1,0 +1,69 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    depends_on:
+      - backend
+    environment:
+      SITE_HOST: ${SITE_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+  backend:
+    build:
+      context: ./rust-backend
+    environment:
+      PORT: 8080
+      BOT_API_URL: http://telegram-bot:3001
+      BOT_INTERNAL_API_KEY: ${BOT_INTERNAL_API_KEY}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_TERMINAL_PASSWORD: ${ADMIN_TERMINAL_PASSWORD}
+      ADMIN_ACCESS_TOKEN: ${ADMIN_ACCESS_TOKEN}
+      PROMPT_CONFIG_PATH: /data/prompt-config.json
+      ACCOUNT_STORE_PATH: /data/account-store
+    restart: unless-stopped
+    volumes:
+      - backend_data:/data
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot
+    environment:
+      PORT: 3001
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS}
+      PAY_SUPPORT_CONTACT: ${PAY_SUPPORT_CONTACT}
+      AUTH_DB_PATH: /data/auth.db
+      LEGACY_JSON_PATH: /data/tokens_db.json
+      BOT_INTERNAL_API_KEY: ${BOT_INTERNAL_API_KEY}
+    restart: unless-stopped
+    volumes:
+      - telegram_bot_data:/data
+
+  support-bot:
+    build:
+      context: ./telegram-support-bot
+    environment:
+      SUPPORT_API_PORT: 3002
+      SUPPORT_BOT_TOKEN: ${SUPPORT_BOT_TOKEN}
+      SUPPORT_BOT_OWNER_ID: ${SUPPORT_BOT_OWNER_ID}
+      SUPPORT_RETRY_INTERVAL_SECONDS: ${SUPPORT_RETRY_INTERVAL_SECONDS}
+      SUPPORT_DB_PATH: /data/support.db
+    restart: unless-stopped
+    volumes:
+      - support_bot_data:/data
+
+volumes:
+  backend_data:
+  telegram_bot_data:
+  support_bot_data:
+  caddy_data:
+  caddy_config:

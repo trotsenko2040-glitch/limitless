@@ -1,0 +1,6 @@
+__pycache__
+*.pyc
+auth.db
+auth.db-*
+tokens_db.json
+.git

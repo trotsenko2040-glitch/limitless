@@ -35,8 +35,9 @@ def resolve_writable_path(configured_path: str, fallback_group: str) -> Path:
     return preferred
 
 
-BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN", "8121934593:AAEMKjNDtNkGsetYyO_H5AsLd10Rl4eU7gU")
-OWNER_ID = int(os.getenv("SUPPORT_BOT_OWNER_ID", "1839845039"))
+BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN", "").strip()
+OWNER_ID_RAW = os.getenv("SUPPORT_BOT_OWNER_ID", "").strip()
+OWNER_ID = int(OWNER_ID_RAW or "0")
 RETRY_INTERVAL_SECONDS = max(5, int(os.getenv("SUPPORT_RETRY_INTERVAL_SECONDS", "15")))
 API_PORT = int(os.getenv("SUPPORT_API_PORT", os.getenv("PORT", "3002")))
 DB_FILE = resolve_writable_path(
