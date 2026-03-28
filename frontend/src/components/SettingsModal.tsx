@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { saveRemoteAccountSnapshot } from '../utils/accountApi';
 import {
   DEFAULT_PROMPT_NAME,
   fetchPromptConfig,
   GEMINI_MODEL_DESCRIPTION,
   GEMINI_MODEL_LABEL,
 } from '../utils/gemini';
-import { loadSettings, saveSettings } from '../utils/storage';
+import {
+  loadAccountSnapshot,
+  loadAuthToken,
+  loadOrCreateDeviceId,
+  loadSettings,
+  saveAccountSnapshot,
+  saveSettings,
+} from '../utils/storage';
 import './SettingsModal.css';
 
 interface SettingsModalProps {
@@ -17,9 +25,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [promptName, setPromptName] = useState(DEFAULT_PROMPT_NAME);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const authToken = loadAuthToken();
 
   useEffect(() => {
-    const settings = loadSettings();
+    const settings = loadSettings(authToken);
     setApiKey(settings.geminiApiKey || '');
 
     let isMounted = true;
@@ -34,8 +44,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     };
   }, []);
 
-  const handleSave = () => {
-    saveSettings({ geminiApiKey: apiKey, theme: 'dark' });
+  const handleSave = async () => {
+    setSaveError('');
+
+    const nextSettings = { geminiApiKey: apiKey.trim(), theme: 'dark' as const };
+    saveSettings(nextSettings, authToken);
+
+    if (authToken) {
+      const nextSnapshot = {
+        ...loadAccountSnapshot(authToken),
+        settings: nextSettings,
+      };
+      saveAccountSnapshot(nextSnapshot, authToken);
+
+      try {
+        await saveRemoteAccountSnapshot(authToken, loadOrCreateDeviceId(), nextSnapshot);
+      } catch {
+        setSaveError('Не удалось сохранить настройки на сервере. Локально они сохранены.');
+        return;
+      }
+    }
+
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
@@ -69,6 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         </div>
 
         <div className="settings-body">
+          {saveError && <div className="settings-hint">{saveError}</div>}
           <div className="settings-section">
             <label className="settings-label">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

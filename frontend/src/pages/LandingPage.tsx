@@ -17,6 +17,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   primaryActionLabel = 'Войти по токену',
 }) => {
   const supportBotUrl = 'https://t.me/LimitlessSupport_bot';
+  const agreementUrl = '/terms';
   const [terminalPassword, setTerminalPassword] = useState('');
   const [terminalMessage, setTerminalMessage] = useState('');
   const [terminalMessageType, setTerminalMessageType] = useState<'idle' | 'error' | 'success'>('idle');
@@ -41,6 +42,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const openSupportBot = () => {
     window.open(supportBotUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const openAgreement = () => {
+    window.location.href = agreementUrl;
   };
 
   const handleTerminalLogin = async (event: React.FormEvent) => {
@@ -100,6 +105,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="landing-nav-links">
+            <button type="button" className="landing-nav-link" onClick={openAgreement} title="Пользовательское соглашение">
+              Соглашение
+            </button>
             <button type="button" className="landing-nav-link" onClick={() => scrollToSection('home')}>
               Главная
             </button>
@@ -122,14 +130,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="landing-hero-grid">
             <div className="landing-hero-copy">
               <div className="landing-hero-badge">AI Mode</div>
-              <h1 className="landing-title">Limitless — готовый ИИ-режим для быстрых и более прямых ответов</h1>
+              <h1 className="landing-title">Limitless - готовый ИИ-режим для быстрых и более прямых ответов</h1>
               <p className="landing-description">
-                Limitless — это преднастроенный режим работы ИИ для тех, кто хочет получить более собранный
-                стиль ответа без долгой ручной настройки. Купили доступ, активировали токен и сразу
-                работаете в привычном интерфейсе.
+                Limitless - это преднастроенный режим работы ИИ для тех, кто хочет получить более собранный стиль ответа без долгой ручной
+                настройки. Купили доступ, активировали токен и сразу работаете в привычном интерфейсе.
               </p>
 
               <div className="landing-section-buttons">
+                <button type="button" className="landing-pill-btn" onClick={openAgreement}>
+                  Соглашение
+                </button>
                 <button type="button" className="landing-pill-btn" onClick={() => scrollToSection('home')}>
                   Главная
                 </button>
@@ -243,25 +253,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <article className="landing-card">
               <h3>Другой стиль ответов</h3>
               <p>
-                Limitless меняет подачу: ответы ощущаются более быстрыми, прямыми и цельными.
-                Это не отдельная модель, а готовый режим работы поверх Gemini 3 Flash.
+                Limitless меняет подачу: ответы ощущаются более быстрыми, прямыми и цельными. Это не отдельная модель, а готовый режим
+                работы поверх Gemini 3 Flash.
               </p>
             </article>
 
             <article className="landing-card">
               <h3>Один доступ без путаницы</h3>
-              <p>
-                После покупки у вас появляется один основной токен.
-                Он закрепляется за вашим доступом и дальше только продлевается.
-              </p>
+              <p>После покупки у вас появляется один основной токен. Он закрепляется за вашим доступом и дальше только продлевается.</p>
             </article>
 
             <article className="landing-card">
               <h3>Запуск за пару минут</h3>
-              <p>
-                Не нужно собирать сложные настройки вручную:
-                открываете сайт, вводите токен и продолжаете работать в уже готовом режиме.
-              </p>
+              <p>Не нужно собирать сложные настройки вручную: открываете сайт, вводите токен и работаете в уже готовом режиме.</p>
             </article>
           </div>
         </section>
@@ -275,26 +279,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="landing-grid">
             <article className="landing-card">
               <h3>Помощь с активацией</h3>
-              <p>
-                Если токен не пришел, не активируется или возник вопрос со входом,
-                поддержка помогает быстро решить это без лишней переписки.
-              </p>
+              <p>Если токен не пришел, не активируется или возник вопрос со входом, поддержка помогает быстро решить это без лишней переписки.</p>
             </article>
 
             <article className="landing-card">
               <h3>Продление и доступ</h3>
-              <p>
-                Через поддержку можно уточнить статус доступа, продление
-                и любые вопросы, связанные с подпиской.
-              </p>
+              <p>Через поддержку можно уточнить статус доступа, продление и любые вопросы, связанные с подпиской.</p>
             </article>
 
             <article className="landing-card">
               <h3>Связь в Telegram</h3>
-              <p>
-                Поддержка находится в Telegram, поэтому написать можно в любой момент
-                и получить ответ там же, где вам удобно.
-              </p>
+              <p>Поддержка находится в Telegram, поэтому написать можно в любой момент и получить ответ там же, где вам удобно.</p>
             </article>
           </div>
 
@@ -305,6 +300,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
         </section>
+
+        <footer className="landing-footer">
+          <span className="landing-footer-copy">© 2026 Limitless</span>
+          <div className="landing-footer-links">
+            <a href="/terms" className="landing-footer-link">
+              Пользовательское соглашение
+            </a>
+            <a href={supportBotUrl} className="landing-footer-link" target="_blank" rel="noopener noreferrer">
+              Поддержка
+            </a>
+          </div>
+        </footer>
       </main>
     </div>
   );

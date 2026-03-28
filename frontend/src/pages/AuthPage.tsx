@@ -181,6 +181,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               Telegram-боте
             </a>
           </p>
+          <p>
+            Используя сервис, вы принимаете{' '}
+            <a href="/terms">
+              пользовательское соглашение
+            </a>
+          </p>
         </div>
 
         <div className="auth-particles">

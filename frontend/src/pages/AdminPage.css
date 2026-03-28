@@ -240,6 +240,57 @@
   gap: 24px;
 }
 
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition-base), background var(--transition-base), border-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.admin-tab:hover {
+  transform: translateY(-1px);
+  color: var(--text-primary);
+}
+
+.admin-tab-active {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.24);
+  color: var(--text-primary);
+  box-shadow: 0 12px 28px rgba(109, 40, 217, 0.14);
+}
+
+.admin-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .admin-section {
   display: flex;
   flex-direction: column;
@@ -608,6 +659,7 @@
   .admin-actions,
   .admin-field-head,
   .admin-section-header,
+  .admin-tabs,
   .admin-users-toolbar,
   .admin-search-form,
   .admin-user-head {
@@ -631,6 +683,11 @@
 
   .admin-textarea {
     min-height: 360px;
+  }
+
+  .admin-tab {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .admin-stats-grid,
@@ -702,6 +759,17 @@
   .admin-section {
     padding: 16px;
     border-radius: 18px;
+  }
+
+  .admin-tabs {
+    border-radius: 16px;
+    padding: 6px;
+  }
+
+  .admin-tab {
+    min-height: 44px;
+    border-radius: 12px;
+    padding: 0 14px;
   }
 
   .admin-section-title {

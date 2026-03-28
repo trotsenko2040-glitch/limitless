@@ -1,0 +1,208 @@
+.agreement-page {
+  position: relative;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(76, 29, 149, 0.26), transparent 30%),
+    linear-gradient(180deg, #09090f 0%, #10101a 100%);
+  overflow-x: hidden;
+}
+
+.agreement-shell {
+  position: relative;
+  z-index: 1;
+  width: min(980px, calc(100% - 24px));
+  margin: 0 auto;
+  padding:
+    calc(20px + var(--safe-top))
+    0
+    calc(28px + var(--safe-bottom));
+}
+
+.agreement-back {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+}
+
+.agreement-back:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 92, 246, 0.26);
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.agreement-card {
+  margin-top: 18px;
+  padding: 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 12, 22, 0.84);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(18px);
+}
+
+.agreement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agreement-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agreement-brand-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.agreement-brand-text {
+  color: var(--text-accent);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 4px;
+}
+
+.agreement-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agreement-intro {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agreement-intro h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.agreement-intro p {
+  max-width: 760px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.agreement-warning {
+  margin-top: 22px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  background: rgba(248, 113, 113, 0.08);
+  color: #ffd0d0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.agreement-warning strong {
+  color: #fff1f1;
+}
+
+.agreement-sections {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.agreement-section {
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.agreement-section h2 {
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.agreement-section p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.agreement-section p + p {
+  margin-top: 10px;
+}
+
+.agreement-orb {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.26;
+  pointer-events: none;
+}
+
+.agreement-orb-1 {
+  top: -70px;
+  left: -30px;
+  background: rgba(139, 92, 246, 0.55);
+}
+
+.agreement-orb-2 {
+  right: -20px;
+  bottom: 12%;
+  background: rgba(59, 130, 246, 0.28);
+}
+
+@media (max-width: 720px) {
+  .agreement-card {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .agreement-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .agreement-shell {
+    width: min(100%, calc(100% - 14px));
+    padding:
+      calc(12px + var(--safe-top))
+      0
+      calc(16px + var(--safe-bottom));
+  }
+
+  .agreement-card {
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .agreement-section {
+    padding: 16px;
+    border-radius: 18px;
+  }
+}

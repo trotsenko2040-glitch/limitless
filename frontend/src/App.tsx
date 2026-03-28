@@ -4,9 +4,16 @@ import { AdminPage } from './pages/AdminPage';
 import { ChatPage } from './pages/ChatPage';
 import { AuthPage } from './pages/AuthPage';
 import { LandingPage } from './pages/LandingPage';
+import { UserAgreementPage } from './pages/UserAgreementPage';
 import { resolveAuthError } from './utils/authErrors';
 import { fetchApi } from './utils/api';
-import { clearAuthToken, loadAuthToken, loadOrCreateDeviceId, saveAuthToken } from './utils/storage';
+import {
+  clearAuthToken,
+  loadAuthToken,
+  loadOrCreateDeviceId,
+  migrateAccountStorage,
+  saveAuthToken,
+} from './utils/storage';
 import './styles/globals.css';
 
 function shouldKeepDeviceLocked(error?: string): boolean {
@@ -32,6 +39,7 @@ const App: React.FC = () => {
   const [showAuthPage, setShowAuthPage] = useState(false);
   const [showLandingWhileAuthenticated, setShowLandingWhileAuthenticated] = useState(false);
   const isAdminRoute = pathname.startsWith('/admin') || isSecretConsoleRoute;
+  const isAgreementRoute = pathname.startsWith('/terms');
 
   useEffect(() => {
     const handlePopState = () => setPathname(window.location.pathname);
@@ -40,7 +48,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isAdminRoute) {
+    if (isAdminRoute || isAgreementRoute) {
       setIsChecking(false);
       return;
     }
@@ -80,6 +88,7 @@ const App: React.FC = () => {
 
         if (data.valid) {
           if (data.token && data.token !== token) {
+            migrateAccountStorage(token, data.token);
             saveAuthToken(data.token);
           }
           setAuthError('');
@@ -119,7 +128,7 @@ const App: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [isAdminRoute]);
+  }, [isAdminRoute, isAgreementRoute]);
 
   const navigate = (nextPath: string) => {
     if (window.location.pathname !== nextPath) {
@@ -129,6 +138,10 @@ const App: React.FC = () => {
   };
 
   const handleAuth = (token: string) => {
+    const previousToken = loadAuthToken();
+    if (previousToken && previousToken !== token) {
+      migrateAccountStorage(previousToken, token);
+    }
     saveAuthToken(token);
     setIsBoundToToken(true);
     setAuthError('');
@@ -163,6 +176,10 @@ const App: React.FC = () => {
 
   if (isAdminRoute) {
     return renderScene(<AdminPage onBackHome={() => navigate('/')} secretMode={isSecretConsoleRoute} />);
+  }
+
+  if (isAgreementRoute) {
+    return renderScene(<UserAgreementPage onBackHome={() => navigate('/')} />);
   }
 
   if (isChecking) {

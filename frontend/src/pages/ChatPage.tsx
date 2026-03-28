@@ -5,9 +5,18 @@ import { SettingsModal } from '../components/SettingsModal';
 import { CapsuleNav } from '../components/CapsuleNav';
 import { MessageBubble } from '../components/MessageBubble';
 import { TypingIndicator } from '../components/TypingIndicator';
+import { fetchRemoteAccountSnapshot, saveRemoteAccountSnapshot } from '../utils/accountApi';
 import {
-  generateId, loadChats, saveChats, loadSettings,
-  createNewChat, generateChatTitle, loadCurrentChatId, saveCurrentChatId
+  AccountSnapshot,
+  createNewChat,
+  generateChatTitle,
+  generateId,
+  hasMeaningfulAccountData,
+  loadAuthToken,
+  loadSettings,
+  loadOrCreateDeviceId,
+  migrateLegacyAccountData,
+  saveAccountSnapshot,
 } from '../utils/storage';
 import {
   DEFAULT_PROMPT_NAME,
@@ -22,8 +31,19 @@ interface ChatPageProps {
 }
 
 export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
-  const [chats, setChats] = useState<Chat[]>(() => loadChats());
-  const [currentChatId, setCurrentChatId] = useState<string | null>(() => loadCurrentChatId());
+  const authToken = React.useMemo(() => loadAuthToken(), []);
+  const deviceId = React.useMemo(() => loadOrCreateDeviceId(), []);
+  const initialAccountSnapshot = React.useMemo(
+    () => (authToken ? migrateLegacyAccountData(authToken) : {
+      chats: [],
+      settings: { geminiApiKey: '', theme: 'dark' as const },
+      currentChatId: null,
+      updatedAt: null,
+    }),
+    [authToken],
+  );
+  const [chats, setChats] = useState<Chat[]>(() => initialAccountSnapshot.chats);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(() => initialAccountSnapshot.currentChatId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -31,6 +51,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
   const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState('');
   const [promptName, setPromptName] = useState(DEFAULT_PROMPT_NAME);
+  const [accountReady, setAccountReady] = useState(!authToken);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -39,14 +60,72 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
   const currentChat = chats.find((c) => c.id === currentChatId) || null;
 
   useEffect(() => {
-    saveChats(chats);
-  }, [chats]);
+    if (!authToken) {
+      setAccountReady(true);
+      return;
+    }
+
+    let isCancelled = false;
+    const localSnapshot = migrateLegacyAccountData(authToken);
+    setChats(localSnapshot.chats);
+    setCurrentChatId(localSnapshot.currentChatId);
+
+    const syncAccount = async () => {
+      try {
+        const remoteSnapshot = await fetchRemoteAccountSnapshot(authToken, deviceId);
+        if (isCancelled) {
+          return;
+        }
+
+        if (hasMeaningfulAccountData(remoteSnapshot)) {
+          saveAccountSnapshot(remoteSnapshot, authToken);
+          setChats(remoteSnapshot.chats);
+          setCurrentChatId(remoteSnapshot.currentChatId);
+        } else if (hasMeaningfulAccountData(localSnapshot)) {
+          await saveRemoteAccountSnapshot(authToken, deviceId, localSnapshot);
+        }
+      } catch {
+        if (!isCancelled && !hasMeaningfulAccountData(localSnapshot)) {
+          setError('Не удалось загрузить данные аккаунта. Локальный кеш пуст.');
+        }
+      } finally {
+        if (!isCancelled) {
+          setAccountReady(true);
+        }
+      }
+    };
+
+    syncAccount();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [authToken, deviceId]);
 
   useEffect(() => {
-    if (currentChatId) {
-      saveCurrentChatId(currentChatId);
+    if (!authToken || !accountReady) {
+      return;
     }
-  }, [currentChatId]);
+
+    const nextSnapshot: AccountSnapshot = {
+      chats,
+      settings: loadSettings(authToken),
+      currentChatId,
+      updatedAt: null,
+    };
+
+    saveAccountSnapshot(nextSnapshot, authToken);
+
+    const timeoutId = window.setTimeout(() => {
+      saveRemoteAccountSnapshot(authToken, deviceId, nextSnapshot).catch(() => {
+        // Local cache stays intact even if the server is temporarily unavailable.
+      });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [accountReady, authToken, chats, currentChatId, deviceId]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -105,7 +184,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
       return;
     }
 
-    const settings = loadSettings();
+    const settings = loadSettings(authToken);
     if (!settings.geminiApiKey) {
       setError('API ключ не настроен. Откройте настройки через кнопку внизу бокового меню.');
       return;

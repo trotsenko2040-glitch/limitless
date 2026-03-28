@@ -18,6 +18,7 @@ pub struct AppState {
     pub bot_internal_api_key: String,
     pub client: reqwest::Client,
     pub prompt_store: PromptStore,
+    pub account_store: AccountStore,
     pub admin_sessions: Arc<Mutex<HashMap<String, AdminSession>>>,
     pub admin_username: String,
     pub admin_password: String,
@@ -27,6 +28,11 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct PromptStore {
     pub file_path: PathBuf,
+}
+
+#[derive(Clone)]
+pub struct AccountStore {
+    pub base_dir: PathBuf,
 }
 
 #[derive(Clone)]
@@ -40,6 +46,41 @@ pub struct AdminSession {
 pub struct PromptConfig {
     pub name: String,
     pub prompt: String,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountMessage {
+    pub id: String,
+    pub role: String,
+    pub content: String,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountChat {
+    pub id: String,
+    pub title: String,
+    pub messages: Vec<AccountMessage>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountSettings {
+    pub gemini_api_key: String,
+    pub theme: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountSnapshot {
+    pub chats: Vec<AccountChat>,
+    pub settings: AccountSettings,
+    pub current_chat_id: Option<String>,
     pub updated_at: Option<String>,
 }
 
@@ -170,10 +211,54 @@ impl PromptStore {
     }
 }
 
+impl AccountStore {
+    pub fn new(base_dir: PathBuf) -> Self {
+        Self { base_dir }
+    }
+
+    fn token_file_path(&self, token: &str) -> PathBuf {
+        let safe_token: String = token
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                    ch
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+
+        self.base_dir.join(format!("{safe_token}.json"))
+    }
+
+    pub fn load(&self, token: &str) -> Option<AccountSnapshot> {
+        let content = fs::read_to_string(self.token_file_path(token)).ok()?;
+        serde_json::from_str::<AccountSnapshot>(&content).ok()
+    }
+
+    pub fn save(&self, token: &str, snapshot: &AccountSnapshot) -> Result<(), String> {
+        fs::create_dir_all(&self.base_dir).map_err(|err| err.to_string())?;
+        let payload = serde_json::to_string_pretty(snapshot).map_err(|err| err.to_string())?;
+        fs::write(self.token_file_path(token), payload).map_err(|err| err.to_string())
+    }
+}
+
 fn fallback_prompt_config() -> PromptConfig {
     PromptConfig {
         name: DEFAULT_PROMPT_NAME.to_string(),
         prompt: String::new(),
+        updated_at: None,
+    }
+}
+
+fn default_account_snapshot() -> AccountSnapshot {
+    AccountSnapshot {
+        chats: vec![],
+        settings: AccountSettings {
+            gemini_api_key: String::new(),
+            theme: "dark".to_string(),
+        },
+        current_chat_id: None,
         updated_at: None,
     }
 }
@@ -201,6 +286,16 @@ fn extract_bearer_token(request: &HttpRequest) -> Option<String> {
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn extract_device_id(request: &HttpRequest) -> Option<String> {
+    request
+        .headers()
+        .get("X-Limitless-Device-Id")
+        .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
@@ -237,6 +332,72 @@ fn ensure_admin(request: &HttpRequest, data: &web::Data<AppState>) -> Result<(),
             token: None,
             error: Some("ADMIN_AUTH_INVALID".to_string()),
         }))
+    }
+}
+
+async fn validate_account_access(
+    request: &HttpRequest,
+    data: &web::Data<AppState>,
+) -> Result<ValidateResponse, HttpResponse> {
+    let token = match extract_bearer_token(request) {
+        Some(token) => token,
+        None => {
+            return Err(HttpResponse::Unauthorized().json(ValidateResponse {
+                valid: false,
+                username: None,
+                token: None,
+                error: Some("TOKEN_REQUIRED".to_string()),
+            }))
+        }
+    };
+
+    let device_id = match extract_device_id(request) {
+        Some(device_id) => device_id,
+        None => {
+            return Err(HttpResponse::BadRequest().json(ValidateResponse {
+                valid: false,
+                username: None,
+                token: None,
+                error: Some("DEVICE_ID_REQUIRED".to_string()),
+            }))
+        }
+    };
+
+    if !auth::validate_token_format(&token) {
+        return Err(HttpResponse::Unauthorized().json(ValidateResponse {
+            valid: false,
+            username: None,
+            token: None,
+            error: Some("INVALID_TOKEN_FORMAT".to_string()),
+        }));
+    }
+
+    match data
+        .client
+        .post(format!("{}/api/validate", data.bot_api_url))
+        .json(&ValidateRequest {
+            token,
+            device_id,
+        })
+        .send()
+        .await
+    {
+        Ok(resp) => match resp.json::<ValidateResponse>().await {
+            Ok(result) if result.valid => Ok(result),
+            Ok(result) => Err(HttpResponse::Unauthorized().json(result)),
+            Err(_) => Err(HttpResponse::BadGateway().json(ValidateResponse {
+                valid: false,
+                username: None,
+                token: None,
+                error: Some("VALIDATION_PARSE_FAILED".to_string()),
+            })),
+        },
+        Err(_) => Err(HttpResponse::BadGateway().json(ValidateResponse {
+            valid: false,
+            username: None,
+            token: None,
+            error: Some("VALIDATION_UNAVAILABLE".to_string()),
+        })),
     }
 }
 
@@ -308,6 +469,56 @@ async fn validate_token(body: web::Json<ValidateRequest>, data: web::Data<AppSta
 async fn get_public_prompt(data: web::Data<AppState>) -> HttpResponse {
     let prompt_config = normalize_prompt_config(data.prompt_store.load());
     HttpResponse::Ok().json(prompt_config)
+}
+
+async fn get_account_snapshot(request: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
+    let validation = match validate_account_access(&request, &data).await {
+        Ok(validation) => validation,
+        Err(response) => return response,
+    };
+
+    let token = validation
+        .token
+        .or_else(|| extract_bearer_token(&request))
+        .unwrap_or_default();
+
+    let snapshot = data
+        .account_store
+        .load(&token)
+        .unwrap_or_else(default_account_snapshot);
+
+    HttpResponse::Ok().json(snapshot)
+}
+
+async fn save_account_snapshot(
+    request: HttpRequest,
+    body: web::Json<AccountSnapshot>,
+    data: web::Data<AppState>,
+) -> HttpResponse {
+    let validation = match validate_account_access(&request, &data).await {
+        Ok(validation) => validation,
+        Err(response) => return response,
+    };
+
+    let token = validation
+        .token
+        .or_else(|| extract_bearer_token(&request))
+        .unwrap_or_default();
+
+    let mut snapshot = body.into_inner();
+    if snapshot.settings.theme.trim().is_empty() {
+        snapshot.settings.theme = "dark".to_string();
+    }
+    snapshot.updated_at = Some(chrono::Utc::now().to_rfc3339());
+
+    match data.account_store.save(&token, &snapshot) {
+        Ok(_) => HttpResponse::Ok().json(snapshot),
+        Err(error) => HttpResponse::InternalServerError().json(AdminLoginResponse {
+            success: false,
+            token: None,
+            error: Some(format!("ACCOUNT_SAVE_FAILED: {error}")),
+        }),
+    }
 }
 
 async fn admin_login(body: web::Json<AdminLoginRequest>, data: web::Data<AppState>) -> HttpResponse {
@@ -545,6 +756,11 @@ async fn main() -> std::io::Result<()> {
         std::env::var("ADMIN_TERMINAL_PASSWORD").unwrap_or_else(|_| "L1M1tLecc".to_string());
     let prompt_config_path =
         std::env::var("PROMPT_CONFIG_PATH").unwrap_or_else(|_| "./data/prompt-config.json".to_string());
+    let account_store_path = std::env::var("ACCOUNT_STORE_PATH").unwrap_or_else(|_| {
+        let mut derived = PathBuf::from(&prompt_config_path);
+        derived.set_file_name("account-store");
+        derived.to_string_lossy().to_string()
+    });
 
     let state = web::Data::new(AppState {
         bot_api_url,
@@ -555,6 +771,7 @@ async fn main() -> std::io::Result<()> {
             .build()
             .expect("Failed to build HTTP client"),
         prompt_store: PromptStore::new(PathBuf::from(prompt_config_path)),
+        account_store: AccountStore::new(PathBuf::from(account_store_path)),
         admin_sessions: Arc::new(Mutex::new(HashMap::new())),
         admin_username,
         admin_password,
@@ -576,6 +793,8 @@ async fn main() -> std::io::Result<()> {
             .route("/api/health", web::get().to(health_check))
             .route("/api/validate", web::post().to(validate_token))
             .route("/api/prompt", web::get().to(get_public_prompt))
+            .route("/api/account", web::get().to(get_account_snapshot))
+            .route("/api/account", web::put().to(save_account_snapshot))
             .route("/api/admin/login", web::post().to(admin_login))
             .route("/api/admin/logout", web::post().to(admin_logout))
             .route("/api/admin/prompt", web::get().to(admin_get_prompt))

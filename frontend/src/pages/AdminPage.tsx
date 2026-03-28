@@ -53,6 +53,8 @@ interface AdminUserActionResponse {
   error?: string;
 }
 
+type AdminSection = 'prompt' | 'users';
+
 function createDefaultPromptConfig(): PromptConfig {
   return {
     name: DEFAULT_PROMPT_NAME,
@@ -125,6 +127,7 @@ function getPlanLabel(user: AdminUserRecord): string {
 }
 
 export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = false }) => {
+  const [activeSection, setActiveSection] = useState<AdminSection>('prompt');
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [authToken, setAuthToken] = useState<string | null>(() => loadAdminAuthToken());
@@ -202,14 +205,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
       }
 
       if (!response.ok) {
-        throw new Error('Не удалось загрузить текущие инструкции.');
+        throw new Error('Не удалось загрузить текущий промпт.');
       }
 
       const data = await response.json();
       applyPromptConfig(data);
       return true;
     } catch (err: any) {
-      setError(err.message || 'Не удалось загрузить текущие инструкции.');
+      setError(err.message || 'Не удалось загрузить текущий промпт.');
       return false;
     } finally {
       setIsLoadingPrompt(false);
@@ -301,6 +304,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
 
       saveAdminAuthToken(data.token);
       setAuthToken(data.token);
+      setActiveSection('prompt');
       setPassword('');
       setSuccessMessage(secretMode ? 'session accepted.' : 'Вход выполнен.');
       await Promise.all([
@@ -326,12 +330,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
     setSuccessMessage('');
 
     if (!promptName.trim()) {
-      setError('Введите название набора инструкций.');
+      setError('Введите название промпта.');
       return;
     }
 
     if (!promptText.trim()) {
-      setError('Введите текст инструкций.');
+      setError('Введите текст промпта.');
       return;
     }
 
@@ -353,13 +357,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || 'Не удалось сохранить инструкции.');
+        throw new Error(data?.error || 'Не удалось сохранить промпт.');
       }
 
       applyPromptConfig(data);
-      setSuccessMessage('Инструкции обновлены.');
+      setSuccessMessage('Промпт обновлен.');
     } catch (err: any) {
-      setError(err.message || 'Не удалось сохранить инструкции.');
+      setError(err.message || 'Не удалось сохранить промпт.');
     } finally {
       setIsSaving(false);
     }
@@ -368,7 +372,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
   const handleResetToDefault = () => {
     applyPromptConfig();
     setError('');
-    setSuccessMessage('В редактор подставлен базовый набор инструкций. Сохраните его, если хотите применить.');
+    setSuccessMessage('В редактор подставлен базовый шаблон. Сохраните его, если хотите применить.');
   };
 
   const handleLogout = async () => {
@@ -452,13 +456,218 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
           bannedUsers: Math.max(0, prevSummary.bannedUsers + delta),
         };
       });
-      setSuccessMessage(action === 'ban' ? `Пользователь ${user.username} забанен.` : `Пользователь ${user.username} разбанен.`);
+      setSuccessMessage(
+        action === 'ban'
+          ? `Пользователь ${user.username} забанен.`
+          : `Пользователь ${user.username} разбанен.`,
+      );
     } catch (err: any) {
       setError(err.message || 'Не удалось обновить пользователя.');
     } finally {
       setUserActionToken(null);
     }
   };
+
+  const renderUsersSection = () => (
+    <>
+      <section className="admin-section">
+        <div className="admin-section-header">
+          <div>
+            <h2 className="admin-section-title">Пользователи</h2>
+            <p className="admin-section-subtitle">Смотрите количество пользователей, проверяйте статусы и управляйте баном.</p>
+          </div>
+        </div>
+
+        <div className="admin-stats-grid">
+          <article className="admin-stat-card">
+            <span className="admin-stat-label">Всего пользователей</span>
+            <strong className="admin-stat-value">{summary.totalUsers}</strong>
+          </article>
+          <article className="admin-stat-card">
+            <span className="admin-stat-label">Активные</span>
+            <strong className="admin-stat-value">{summary.activeUsers}</strong>
+          </article>
+          <article className="admin-stat-card">
+            <span className="admin-stat-label">Забаненные</span>
+            <strong className="admin-stat-value">{summary.bannedUsers}</strong>
+          </article>
+          <article className="admin-stat-card">
+            <span className="admin-stat-label">Привязанные устройства</span>
+            <strong className="admin-stat-value">{summary.boundDevices}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="admin-section">
+        <div className="admin-section-header">
+          <div>
+            <h2 className="admin-section-title">Список пользователей</h2>
+            <p className="admin-section-subtitle">Можно искать по имени, chat id или токену, а также банить и разбанивать доступ.</p>
+          </div>
+        </div>
+
+        <div className="admin-users-toolbar">
+          <form className="admin-search-form" onSubmit={handleUsersSearchSubmit}>
+            <input
+              className="admin-search-input"
+              type="text"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Поиск по имени, chat id или токену"
+              spellCheck={false}
+            />
+            <button type="submit" className="admin-secondary-button" disabled={isLoadingUsers}>
+              {isLoadingUsers ? 'Ищу...' : 'Найти'}
+            </button>
+          </form>
+
+          <button type="button" className="admin-secondary-button" onClick={handleRefreshUsers} disabled={isLoadingUsers}>
+            {isLoadingUsers ? 'Обновляю...' : 'Обновить список'}
+          </button>
+        </div>
+
+        {users.length === 0 ? (
+          <div className="admin-empty-state">
+            {isLoadingUsers ? 'Загружаю пользователей...' : 'Пользователи не найдены.'}
+          </div>
+        ) : (
+          <div className="admin-user-list">
+            {users.map((user) => {
+              const userState = getUserState(user);
+              const isActionRunning = userActionToken === user.token;
+
+              return (
+                <article key={user.token} className="admin-user-card">
+                  <div className="admin-user-head">
+                    <div className="admin-user-title-group">
+                      <h3 className="admin-user-name">{user.username || 'User'}</h3>
+                      <code className="admin-user-token">{user.token}</code>
+                    </div>
+
+                    <div className="admin-user-badges">
+                      <span className={`admin-user-badge ${userState.className}`}>{userState.label}</span>
+                      {user.isBound && <span className="admin-user-badge admin-user-badge-neutral">Устройство привязано</span>}
+                      <span className="admin-user-badge admin-user-badge-neutral">{getPlanLabel(user)}</span>
+                    </div>
+                  </div>
+
+                  <div className="admin-user-details">
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Chat ID</span>
+                      <span className="admin-user-detail-value">{user.chatId}</span>
+                    </div>
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Создан</span>
+                      <span className="admin-user-detail-value">{formatDateTime(user.createdAt)}</span>
+                    </div>
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Последняя активность</span>
+                      <span className="admin-user-detail-value">{formatDateTime(user.lastSeenAt)}</span>
+                    </div>
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Срок доступа</span>
+                      <span className="admin-user-detail-value">{formatDateTime(user.subscriptionExpiresAt)}</span>
+                    </div>
+                    <div className="admin-user-detail admin-user-detail-wide">
+                      <span className="admin-user-detail-label">Device ID</span>
+                      <span className="admin-user-detail-value admin-user-detail-mono">{user.activatedDeviceId || '—'}</span>
+                    </div>
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Бан</span>
+                      <span className="admin-user-detail-value">{formatDateTime(user.revokedAt)}</span>
+                    </div>
+                  </div>
+
+                  <div className="admin-user-actions">
+                    {user.isBanned ? (
+                      <button
+                        type="button"
+                        className="admin-secondary-button"
+                        onClick={() => handleUserAction(user, 'unban')}
+                        disabled={isActionRunning}
+                      >
+                        {isActionRunning ? 'Снимаю бан...' : 'Разбанить'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="admin-danger-button"
+                        onClick={() => handleUserAction(user, 'ban')}
+                        disabled={isActionRunning}
+                      >
+                        {isActionRunning ? 'Баню...' : 'Забанить'}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </>
+  );
+
+  const renderPromptSection = () => (
+    <section className="admin-section">
+      <div className="admin-section-header">
+        <div>
+          <h2 className="admin-section-title">Обновить промпт</h2>
+          <p className="admin-section-subtitle">Меняйте название режима и сам системный промпт для новых ответов.</p>
+        </div>
+      </div>
+
+      <form className="admin-editor-form" onSubmit={handleSavePrompt}>
+        <div className="admin-field">
+          <label htmlFor="prompt-name">Название промпта</label>
+          <input
+            id="prompt-name"
+            className="admin-input"
+            type="text"
+            value={promptName}
+            onChange={(e) => setPromptName(e.target.value)}
+            placeholder="Например: Limitless X"
+            spellCheck={false}
+          />
+        </div>
+
+        <div className="admin-field admin-field-large">
+          <div className="admin-field-head">
+            <label htmlFor="prompt-text">Текст промпта</label>
+            <button
+              type="button"
+              className="admin-inline-button"
+              onClick={handleResetToDefault}
+            >
+              Подставить базовый
+            </button>
+          </div>
+          <textarea
+            id="prompt-text"
+            className="admin-textarea"
+            value={promptText}
+            onChange={(e) => setPromptText(e.target.value)}
+            placeholder="Введите новый системный промпт и инструкции"
+            spellCheck={false}
+          />
+        </div>
+
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="admin-secondary-button"
+            onClick={() => authToken && loadAdminPrompt(authToken)}
+            disabled={isLoadingPrompt || isSaving}
+          >
+            {isLoadingPrompt ? 'Обновляю...' : 'Загрузить с сервера'}
+          </button>
+          <button type="submit" className="admin-primary-button" disabled={isSaving || isLoadingPrompt}>
+            {isSaving ? 'Сохраняю...' : 'Сохранить промпт'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
 
   return (
     <div className={`admin-page ${secretMode ? 'admin-page-secret' : ''}`}>
@@ -482,14 +691,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
             <div>
               <span className="admin-kicker">{authToken ? 'Admin Control' : secretMode ? 'Runtime Console' : 'Limitless Admin'}</span>
               <h1 className="admin-title">
-                {authToken ? 'Управление пользователями и инструкциями' : secretMode ? 'Interactive Session' : 'Управление системным промптом'}
+                {authToken ? 'Админ-панель Limitless' : secretMode ? 'Interactive Session' : 'Управление Limitless'}
               </h1>
               <p className="admin-subtitle">
                 {authToken
-                  ? 'После входа здесь можно смотреть пользователей, блокировать доступ, обновлять системный промпт и набор инструкций для новых ответов.'
+                  ? 'После входа можно отдельно открыть раздел пользователей или раздел редактирования системного промпта.'
                   : secretMode
                     ? 'Ephemeral shell access for maintenance routines.'
-                    : 'Здесь можно обновить название режима и сам текст промпта. Новые сообщения в чате возьмут актуальную версию с сервера.'}
+                    : 'Войдите, чтобы управлять пользователями и обновлять системный промпт.'}
               </p>
             </div>
             <div className="admin-meta-card">
@@ -572,200 +781,29 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
             )
           ) : (
             <div className="admin-dashboard">
-              <section className="admin-section">
-                <div className="admin-section-header">
-                  <div>
-                    <h2 className="admin-section-title">Обзор доступа</h2>
-                    <p className="admin-section-subtitle">Сводка по всем токенам и привязанным устройствам.</p>
-                  </div>
-                </div>
+              <div className="admin-tabs" role="tablist" aria-label="Разделы админки">
+                <button
+                  type="button"
+                  className={`admin-tab ${activeSection === 'prompt' ? 'admin-tab-active' : ''}`}
+                  onClick={() => setActiveSection('prompt')}
+                  role="tab"
+                  aria-selected={activeSection === 'prompt'}
+                >
+                  Обновить промпт
+                </button>
+                <button
+                  type="button"
+                  className={`admin-tab ${activeSection === 'users' ? 'admin-tab-active' : ''}`}
+                  onClick={() => setActiveSection('users')}
+                  role="tab"
+                  aria-selected={activeSection === 'users'}
+                >
+                  Пользователи
+                  <span className="admin-tab-count">{summary.totalUsers}</span>
+                </button>
+              </div>
 
-                <div className="admin-stats-grid">
-                  <article className="admin-stat-card">
-                    <span className="admin-stat-label">Всего пользователей</span>
-                    <strong className="admin-stat-value">{summary.totalUsers}</strong>
-                  </article>
-                  <article className="admin-stat-card">
-                    <span className="admin-stat-label">Активные</span>
-                    <strong className="admin-stat-value">{summary.activeUsers}</strong>
-                  </article>
-                  <article className="admin-stat-card">
-                    <span className="admin-stat-label">Забаненные</span>
-                    <strong className="admin-stat-value">{summary.bannedUsers}</strong>
-                  </article>
-                  <article className="admin-stat-card">
-                    <span className="admin-stat-label">Привязанные устройства</span>
-                    <strong className="admin-stat-value">{summary.boundDevices}</strong>
-                  </article>
-                </div>
-              </section>
-
-              <section className="admin-section">
-                <div className="admin-section-header">
-                  <div>
-                    <h2 className="admin-section-title">Пользователи</h2>
-                    <p className="admin-section-subtitle">Можно искать по имени, chat id или токену, банить и разбанивать доступ.</p>
-                  </div>
-                </div>
-
-                <div className="admin-users-toolbar">
-                  <form className="admin-search-form" onSubmit={handleUsersSearchSubmit}>
-                    <input
-                      className="admin-search-input"
-                      type="text"
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                      placeholder="Поиск по имени, chat id или токену"
-                      spellCheck={false}
-                    />
-                    <button type="submit" className="admin-secondary-button" disabled={isLoadingUsers}>
-                      {isLoadingUsers ? 'Ищу...' : 'Найти'}
-                    </button>
-                  </form>
-
-                  <button type="button" className="admin-secondary-button" onClick={handleRefreshUsers} disabled={isLoadingUsers}>
-                    {isLoadingUsers ? 'Обновляю...' : 'Обновить список'}
-                  </button>
-                </div>
-
-                {users.length === 0 ? (
-                  <div className="admin-empty-state">
-                    {isLoadingUsers ? 'Загружаю пользователей...' : 'Пользователи не найдены.'}
-                  </div>
-                ) : (
-                  <div className="admin-user-list">
-                    {users.map((user) => {
-                      const userState = getUserState(user);
-                      const isActionRunning = userActionToken === user.token;
-
-                      return (
-                        <article key={user.token} className="admin-user-card">
-                          <div className="admin-user-head">
-                            <div className="admin-user-title-group">
-                              <h3 className="admin-user-name">{user.username || 'User'}</h3>
-                              <code className="admin-user-token">{user.token}</code>
-                            </div>
-
-                            <div className="admin-user-badges">
-                              <span className={`admin-user-badge ${userState.className}`}>{userState.label}</span>
-                              {user.isBound && <span className="admin-user-badge admin-user-badge-neutral">Устройство привязано</span>}
-                              <span className="admin-user-badge admin-user-badge-neutral">{getPlanLabel(user)}</span>
-                            </div>
-                          </div>
-
-                          <div className="admin-user-details">
-                            <div className="admin-user-detail">
-                              <span className="admin-user-detail-label">Chat ID</span>
-                              <span className="admin-user-detail-value">{user.chatId}</span>
-                            </div>
-                            <div className="admin-user-detail">
-                              <span className="admin-user-detail-label">Создан</span>
-                              <span className="admin-user-detail-value">{formatDateTime(user.createdAt)}</span>
-                            </div>
-                            <div className="admin-user-detail">
-                              <span className="admin-user-detail-label">Последняя активность</span>
-                              <span className="admin-user-detail-value">{formatDateTime(user.lastSeenAt)}</span>
-                            </div>
-                            <div className="admin-user-detail">
-                              <span className="admin-user-detail-label">Срок доступа</span>
-                              <span className="admin-user-detail-value">{formatDateTime(user.subscriptionExpiresAt)}</span>
-                            </div>
-                            <div className="admin-user-detail admin-user-detail-wide">
-                              <span className="admin-user-detail-label">Device ID</span>
-                              <span className="admin-user-detail-value admin-user-detail-mono">{user.activatedDeviceId || '—'}</span>
-                            </div>
-                            <div className="admin-user-detail">
-                              <span className="admin-user-detail-label">Бан</span>
-                              <span className="admin-user-detail-value">{formatDateTime(user.revokedAt)}</span>
-                            </div>
-                          </div>
-
-                          <div className="admin-user-actions">
-                            {user.isBanned ? (
-                              <button
-                                type="button"
-                                className="admin-secondary-button"
-                                onClick={() => handleUserAction(user, 'unban')}
-                                disabled={isActionRunning}
-                              >
-                                {isActionRunning ? 'Снимаю бан...' : 'Разбанить'}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="admin-danger-button"
-                                onClick={() => handleUserAction(user, 'ban')}
-                                disabled={isActionRunning}
-                              >
-                                {isActionRunning ? 'Баню...' : 'Забанить'}
-                              </button>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              <section className="admin-section">
-                <div className="admin-section-header">
-                  <div>
-                    <h2 className="admin-section-title">Инструкции и системный промпт</h2>
-                    <p className="admin-section-subtitle">Изменения применяются к новым запросам после сохранения.</p>
-                  </div>
-                </div>
-
-                <form className="admin-editor-form" onSubmit={handleSavePrompt}>
-                  <div className="admin-field">
-                    <label htmlFor="prompt-name">Название набора инструкций</label>
-                    <input
-                      id="prompt-name"
-                      className="admin-input"
-                      type="text"
-                      value={promptName}
-                      onChange={(e) => setPromptName(e.target.value)}
-                      placeholder="Например: Limitless X"
-                      spellCheck={false}
-                    />
-                  </div>
-
-                  <div className="admin-field admin-field-large">
-                    <div className="admin-field-head">
-                      <label htmlFor="prompt-text">Текст инструкций</label>
-                      <button
-                        type="button"
-                        className="admin-inline-button"
-                        onClick={handleResetToDefault}
-                      >
-                        Подставить базовый
-                      </button>
-                    </div>
-                    <textarea
-                      id="prompt-text"
-                      className="admin-textarea"
-                      value={promptText}
-                      onChange={(e) => setPromptText(e.target.value)}
-                      placeholder="Введите новый системный промпт и инструкции"
-                      spellCheck={false}
-                    />
-                  </div>
-
-                  <div className="admin-actions">
-                    <button
-                      type="button"
-                      className="admin-secondary-button"
-                      onClick={() => authToken && loadAdminPrompt(authToken)}
-                      disabled={isLoadingPrompt || isSaving}
-                    >
-                      {isLoadingPrompt ? 'Обновляю...' : 'Загрузить с сервера'}
-                    </button>
-                    <button type="submit" className="admin-primary-button" disabled={isSaving || isLoadingPrompt}>
-                      {isSaving ? 'Сохраняю...' : 'Сохранить инструкции'}
-                    </button>
-                  </div>
-                </form>
-              </section>
+              {activeSection === 'users' ? renderUsersSection() : renderPromptSection()}
             </div>
           )}
         </div>
