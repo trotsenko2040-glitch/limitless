@@ -311,6 +311,11 @@ def normalize_promo_code(code: str) -> str:
     return code.strip().upper()
 
 
+def parse_discount_percent(raw_value: str) -> int:
+    normalized = raw_value.strip().replace("%", "")
+    return int(normalized)
+
+
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_CHAT_IDS
 
@@ -608,6 +613,12 @@ def calculate_discounted_stars(plan: dict, promo_code: dict | None) -> int:
     discount_percent = max(0, min(95, int(promo_code.get("discount_percent", 0))))
     discounted = round(base_amount * (100 - discount_percent) / 100)
     return max(1, discounted)
+
+
+def format_discount_badge(promo_code: dict | None) -> str:
+    if not promo_code:
+        return ""
+    return f"-{int(promo_code.get('discount_percent', 0))}%"
 
 
 def create_promo_code_record(
@@ -932,8 +943,12 @@ def build_purchase_keyboard_for_chat(chat_id: int | None) -> types.InlineKeyboar
             for plan in PLANS:
                 promo_code = get_active_chat_promo(connection, chat_id, plan) if chat_id is not None else None
                 button_text = plan["button_text"]
+                discounted_stars = None
                 if promo_code:
+                    discounted_stars = calculate_discounted_stars(plan, promo_code)
                     button_text = f"{button_text} → {calculate_discounted_stars(plan, promo_code)} stars"
+                if discounted_stars is not None:
+                    button_text = f"{plan['button_text']} • {format_discount_badge(promo_code)} • {discounted_stars} stars"
                 keyboard.add(
                     types.InlineKeyboardButton(
                         text=button_text,
@@ -1020,7 +1035,9 @@ def build_plans_message(chat_id: int | None = None) -> str:
 
         if applicable_promo:
             discounted = calculate_discounted_stars(plan, applicable_promo)
+            discount_label = format_discount_badge(applicable_promo)
             lines.append(f"• {format_plan_label(plan)} — <s>{plan['stars']}</s> {discounted} stars")
+            lines[-1] = f"• {format_plan_label(plan)} — <s>{plan['stars']}</s> {discounted} stars ({discount_label})"
         else:
             lines.append(f"• {format_plan_label(plan)} — {plan['stars']} stars")
     if active_promo:
@@ -1463,7 +1480,7 @@ def handle_create_promo(message):
 
     code = normalize_promo_code(parts[1])
     try:
-        discount_percent = int(parts[2])
+        discount_percent = parse_discount_percent(parts[2])
     except ValueError:
         bot.send_message(message.chat.id, "Размер скидки должен быть целым числом.")
         return
