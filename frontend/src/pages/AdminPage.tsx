@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ProfileAvatar } from '../components/ProfileAvatar';
 import { getApiUrl } from '../utils/api';
-import {
-  DEFAULT_PROMPT_NAME,
-  PromptConfig,
-  SYSTEM_PROMPT,
-} from '../utils/gemini';
+import { DEFAULT_PROMPT_NAME, PromptConfig, SYSTEM_PROMPT } from '../utils/gemini';
 import {
   clearAdminAuthToken,
   loadAdminAuthToken,
@@ -28,6 +25,11 @@ interface AdminUserRecord {
   token: string;
   chatId: number;
   username: string;
+  profileId?: string | null;
+  profileNickname?: string | null;
+  profileAvatarDataUrl?: string | null;
+  profileAvatarHue?: number | null;
+  profileCreatedAt?: string | null;
   createdAt?: string | null;
   activatedDeviceId?: string | null;
   activatedAt?: string | null;
@@ -84,15 +86,15 @@ function formatDateTime(value?: string | null): string {
     return 'Нет данных';
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
     return value;
   }
 
   return new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(date);
+  }).format(parsedDate);
 }
 
 function getUserState(user: AdminUserRecord): { label: string; className: string } {
@@ -126,13 +128,25 @@ function getPlanLabel(user: AdminUserRecord): string {
   }
 }
 
+function getDisplayProfileName(user: AdminUserRecord): string {
+  return user.profileNickname?.trim() || user.username?.trim() || 'User';
+}
+
+function getDisplayTelegramLabel(user: AdminUserRecord): string {
+  if (user.username?.trim()) {
+    return `@${user.username.trim()}`;
+  }
+
+  return `Chat ID ${user.chatId}`;
+}
+
 function resolveAdminError(error?: string): string {
   if (error?.startsWith('PROMPT_SAVE_FAILED')) {
-    return 'Backend не смог сохранить промпт на диск. После этого обновления он должен автоматически переключиться на writable runtime storage. Сделайте redeploy backend.';
+    return 'Backend не смог сохранить промпт в хранилище. Сделайте redeploy backend или проверьте путь хранения.';
   }
 
   if (error?.startsWith('PROMPT_LOAD_FAILED')) {
-    return 'Backend не смог прочитать сохраненный промпт. Проверьте доступность storage и сделайте redeploy backend.';
+    return 'Backend не смог прочитать сохраненный промпт. Проверьте storage и сделайте redeploy backend.';
   }
 
   switch (error) {
@@ -141,13 +155,13 @@ function resolveAdminError(error?: string): string {
     case 'ADMIN_USERS_UNAVAILABLE':
       return 'Сервис пользователей временно недоступен. Проверьте BOT_API_URL и состояние Telegram bot API.';
     case 'ADMIN_USERS_ROUTE_MISSING':
-      return 'Telegram bot API запущен на старой версии и еще не знает маршрут /api/admin/users. Сделайте redeploy bot service на Render.';
+      return 'Telegram bot API запущен на старой версии и еще не знает маршрут /api/admin/users.';
     case 'ADMIN_BRIDGE_UNAUTHORIZED':
-      return 'Backend не авторизован в Telegram bot API. Сверьте BOT_INTERNAL_API_KEY в Rust backend и telegram-bot.';
+      return 'Backend не авторизован в Telegram bot API. Сверьте BOT_INTERNAL_API_KEY в backend и bot service.';
     case 'ADMIN_USER_ACTION_PARSE_FAILED':
-      return 'Не удалось разобрать ответ сервиса пользователей. Обновите backend и Telegram bot до одной версии.';
+      return 'Не удалось разобрать ответ сервиса пользователей. Обновите backend и bot service до одной версии.';
     case 'ADMIN_USER_ACTION_UNAVAILABLE':
-      return 'Команда для пользователя не дошла до Telegram bot API. Проверьте BOT_API_URL и доступность сервиса.';
+      return 'Команда для пользователя не дошла до Telegram bot API. Проверьте BOT_API_URL.';
     case 'TOKEN_NOT_FOUND':
       return 'Пользователь с таким токеном не найден.';
     case 'TOKEN_REQUIRED':
@@ -182,12 +196,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
   const [successMessage, setSuccessMessage] = useState('');
   const [promptRenderKey, setPromptRenderKey] = useState(0);
 
-  const visibleError = secretMode && error
-    ? (password.trim() ? 'command rejected.' : 'input required.')
-    : error;
-  const visibleSuccessMessage = secretMode && successMessage
-    ? 'session accepted.'
-    : successMessage;
+  const visibleError = secretMode && error ? (password.trim() ? 'command rejected.' : 'input required.') : error;
+  const visibleSuccessMessage = secretMode && successMessage ? 'session accepted.' : successMessage;
 
   const formattedUpdatedAt = useMemo(() => {
     if (!updatedAt) {
@@ -199,24 +209,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
 
   const promptCharacters = useMemo(() => promptText.length, [promptText]);
 
+  const visibleUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    if (!query) {
+      return users;
+    }
+
+    return users.filter((user) => {
+      const haystack = [
+        user.username,
+        user.token,
+        user.chatId?.toString(),
+        user.profileId,
+        user.profileNickname,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [userSearch, users]);
+
   const applyPromptConfig = useCallback((config?: Partial<PromptConfig>) => {
     const merged = {
       ...createDefaultPromptConfig(),
       ...config,
     };
 
-    setPromptName(
-      typeof merged.name === 'string' && merged.name.trim()
-        ? merged.name
-        : DEFAULT_PROMPT_NAME,
-    );
-    setPromptText(
-      typeof merged.prompt === 'string' && merged.prompt.trim()
-        ? merged.prompt
-        : SYSTEM_PROMPT,
-    );
+    setPromptName(typeof merged.name === 'string' && merged.name.trim() ? merged.name : DEFAULT_PROMPT_NAME);
+    setPromptText(typeof merged.prompt === 'string' && merged.prompt.trim() ? merged.prompt : SYSTEM_PROMPT);
     setUpdatedAt(merged.updatedAt ?? null);
-    setPromptRenderKey((prev) => prev + 1);
+    setPromptRenderKey((previous) => previous + 1);
   }, []);
 
   useEffect(() => {
@@ -224,13 +248,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
       return;
     }
 
-    const frame = window.requestAnimationFrame(() => {
+    const frameId = window.requestAnimationFrame(() => {
       if (promptTextareaRef.current) {
         promptTextareaRef.current.scrollTop = 0;
       }
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => window.cancelAnimationFrame(frameId);
   }, [activeSection, promptRenderKey]);
 
   const handleUnauthorized = useCallback(() => {
@@ -511,8 +535,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
       });
       setSuccessMessage(
         action === 'ban'
-          ? `Пользователь ${user.username} забанен.`
-          : `Пользователь ${user.username} разбанен.`,
+          ? `Пользователь ${getDisplayProfileName(user)} забанен.`
+          : `Пользователь ${getDisplayProfileName(user)} разбанен.`,
       );
     } catch (requestError: any) {
       setError(requestError.message || 'Не удалось обновить пользователя.');
@@ -527,7 +551,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
         <div className="admin-section-header">
           <div>
             <h2 className="admin-section-title">Пользователи</h2>
-            <p className="admin-section-subtitle">Смотрите количество пользователей, проверяйте статусы и управляйте баном.</p>
+            <p className="admin-section-subtitle">Смотрите количество пользователей, их профили и управляйте доступом.</p>
           </div>
         </div>
 
@@ -555,7 +579,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
         <div className="admin-section-header">
           <div>
             <h2 className="admin-section-title">Список пользователей</h2>
-            <p className="admin-section-subtitle">Можно искать по имени, chat id или токену, а также банить и разбанивать доступ.</p>
+            <p className="admin-section-subtitle">Ищите по нику, profile id, chat id или токену. Здесь же можно банить и разбанивать доступ.</p>
           </div>
         </div>
 
@@ -565,8 +589,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
               className="admin-search-input"
               type="text"
               value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="Поиск по имени, chat id или токену"
+              onChange={(event) => setUserSearch(event.target.value)}
+              placeholder="Поиск по нику, profile id, chat id или токену"
               spellCheck={false}
             />
             <button type="submit" className="admin-secondary-button" disabled={isLoadingUsers}>
@@ -579,22 +603,34 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
           </button>
         </div>
 
-        {users.length === 0 ? (
+        {visibleUsers.length === 0 ? (
           <div className="admin-empty-state">
             {isLoadingUsers ? 'Загружаю пользователей...' : 'Пользователи не найдены.'}
           </div>
         ) : (
           <div className="admin-user-list">
-            {users.map((user) => {
+            {visibleUsers.map((user) => {
               const userState = getUserState(user);
               const isActionRunning = userActionToken === user.token;
 
               return (
                 <article key={user.token} className="admin-user-card">
                   <div className="admin-user-head">
-                    <div className="admin-user-title-group">
-                      <h3 className="admin-user-name">{user.username || 'User'}</h3>
-                      <code className="admin-user-token">{user.token}</code>
+                    <div className="admin-user-identity">
+                      <ProfileAvatar
+                        className="admin-user-avatar"
+                        nickname={getDisplayProfileName(user)}
+                        avatarDataUrl={user.profileAvatarDataUrl}
+                        avatarHue={user.profileAvatarHue}
+                      />
+                      <div className="admin-user-title-group">
+                        <h3 className="admin-user-name">{getDisplayProfileName(user)}</h3>
+                        <div className="admin-user-subtitle-row">
+                          <span className="admin-user-subtitle">{getDisplayTelegramLabel(user)}</span>
+                          <code className="admin-user-profile-id">{user.profileId || 'LX-UNKNOWN'}</code>
+                        </div>
+                        <code className="admin-user-token">{user.token}</code>
+                      </div>
                     </div>
 
                     <div className="admin-user-badges">
@@ -606,12 +642,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
 
                   <div className="admin-user-details">
                     <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Профиль</span>
+                      <span className="admin-user-detail-value">{user.profileId || 'LX-UNKNOWN'}</span>
+                    </div>
+                    <div className="admin-user-detail">
                       <span className="admin-user-detail-label">Chat ID</span>
                       <span className="admin-user-detail-value">{user.chatId}</span>
                     </div>
                     <div className="admin-user-detail">
                       <span className="admin-user-detail-label">Создан</span>
                       <span className="admin-user-detail-value">{formatDateTime(user.createdAt)}</span>
+                    </div>
+                    <div className="admin-user-detail">
+                      <span className="admin-user-detail-label">Профиль создан</span>
+                      <span className="admin-user-detail-value">{formatDateTime(user.profileCreatedAt)}</span>
                     </div>
                     <div className="admin-user-detail">
                       <span className="admin-user-detail-label">Последняя активность</span>
@@ -678,7 +722,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
             className="admin-input"
             type="text"
             value={promptName}
-            onChange={(e) => setPromptName(e.target.value)}
+            onChange={(event) => setPromptName(event.target.value)}
             placeholder="Например: Limitless X"
             spellCheck={false}
           />
@@ -687,11 +731,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
         <div className="admin-field admin-field-large">
           <div className="admin-field-head">
             <label htmlFor="prompt-text">Текст промпта</label>
-            <button
-              type="button"
-              className="admin-inline-button"
-              onClick={handleResetToDefault}
-            >
+            <button type="button" className="admin-inline-button" onClick={handleResetToDefault}>
               Подставить базовый
             </button>
           </div>
@@ -701,7 +741,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
             id="prompt-text"
             className="admin-textarea"
             value={promptText}
-            onChange={(e) => setPromptText(e.target.value)}
+            onChange={(event) => setPromptText(event.target.value)}
             placeholder="Введите новый системный промпт и инструкции"
             spellCheck={false}
             rows={24}
@@ -755,7 +795,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
               </h1>
               <p className="admin-subtitle">
                 {authToken
-                  ? 'После входа можно отдельно открыть раздел пользователей или раздел редактирования системного промпта.'
+                  ? 'После входа можно открыть раздел пользователей или раздел редактирования системного промпта.'
                   : secretMode
                     ? 'Ephemeral shell access for maintenance routines.'
                     : 'Войдите, чтобы управлять пользователями и обновлять системный промпт.'}
@@ -793,7 +833,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
                         className="admin-console-input"
                         type="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(event) => setPassword(event.target.value)}
                         autoComplete="off"
                         placeholder="type command..."
                         aria-label="Console input"
@@ -816,7 +856,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
                     className="admin-input"
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(event) => setUsername(event.target.value)}
                     autoComplete="username"
                     spellCheck={false}
                   />
@@ -829,7 +869,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackHome, secretMode = f
                     className="admin-input"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
                   />
                 </div>

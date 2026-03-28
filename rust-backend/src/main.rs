@@ -12,6 +12,34 @@ use uuid::Uuid;
 mod auth;
 
 const DEFAULT_PROMPT_NAME: &str = "Limitless 1.5";
+const PROFILE_ADJECTIVES: [&str; 12] = [
+    "Neon",
+    "Ghost",
+    "Nova",
+    "Cipher",
+    "Lunar",
+    "Solar",
+    "Echo",
+    "Velvet",
+    "Orbit",
+    "Quantum",
+    "Pixel",
+    "Silent",
+];
+const PROFILE_NOUNS: [&str; 12] = [
+    "Fox",
+    "Pulse",
+    "Raven",
+    "Vector",
+    "Signal",
+    "Drift",
+    "Node",
+    "Spark",
+    "Comet",
+    "Shade",
+    "Flux",
+    "Scope",
+];
 
 #[derive(Clone)]
 pub struct AppState {
@@ -74,16 +102,39 @@ pub struct AccountChat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountSettings {
+    #[serde(default)]
     pub gemini_api_key: String,
+    #[serde(default = "default_theme")]
     pub theme: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AccountProfile {
+    #[serde(default)]
+    pub profile_id: String,
+    #[serde(default)]
+    pub nickname: String,
+    #[serde(default)]
+    pub avatar_data_url: Option<String>,
+    #[serde(default)]
+    pub avatar_hue: u16,
+    #[serde(default)]
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountSnapshot {
+    #[serde(default)]
     pub chats: Vec<AccountChat>,
+    #[serde(default = "default_account_settings")]
     pub settings: AccountSettings,
+    #[serde(default)]
     pub current_chat_id: Option<String>,
+    #[serde(default = "default_account_profile_placeholder")]
+    pub profile: AccountProfile,
+    #[serde(default)]
     pub updated_at: Option<String>,
 }
 
@@ -144,6 +195,11 @@ pub struct AdminUserRecord {
     pub token: String,
     pub chat_id: i64,
     pub username: String,
+    pub profile_id: Option<String>,
+    pub profile_nickname: Option<String>,
+    pub profile_avatar_data_url: Option<String>,
+    pub profile_avatar_hue: Option<u16>,
+    pub profile_created_at: Option<String>,
     pub created_at: Option<String>,
     pub activated_device_id: Option<String>,
     pub activated_at: Option<String>,
@@ -260,7 +316,7 @@ impl AccountStore {
         ] {
             if let Ok(content) = fs::read_to_string(candidate) {
                 if let Ok(snapshot) = serde_json::from_str::<AccountSnapshot>(&content) {
-                    return Some(snapshot);
+                    return Some(normalize_account_snapshot(snapshot, Some(token)));
                 }
             }
         }
@@ -269,7 +325,8 @@ impl AccountStore {
     }
 
     pub fn save(&self, token: &str, snapshot: &AccountSnapshot) -> Result<(), String> {
-        let payload = serde_json::to_string_pretty(snapshot).map_err(|err| err.to_string())?;
+        let normalized_snapshot = normalize_account_snapshot(snapshot.clone(), Some(token));
+        let payload = serde_json::to_string_pretty(&normalized_snapshot).map_err(|err| err.to_string())?;
         let primary_path = Self::token_file_path(&self.primary_base_dir, token);
         let fallback_path = Self::token_file_path(&self.fallback_base_dir, token);
 
@@ -303,14 +360,131 @@ fn fallback_prompt_config() -> PromptConfig {
     }
 }
 
-fn default_account_snapshot() -> AccountSnapshot {
+fn default_theme() -> String {
+    "dark".to_string()
+}
+
+fn default_account_settings() -> AccountSettings {
+    AccountSettings {
+        gemini_api_key: String::new(),
+        theme: default_theme(),
+    }
+}
+
+fn stable_hash(input: &str) -> u32 {
+    let mut hash: u32 = 2_166_136_261;
+    for byte in input.as_bytes() {
+        hash ^= *byte as u32;
+        hash = hash.wrapping_mul(16_777_619);
+    }
+
+    hash
+}
+
+fn to_base36(mut value: u32) -> String {
+    if value == 0 {
+        return "0".to_string();
+    }
+
+    let mut output = Vec::new();
+    while value > 0 {
+        let digit = (value % 36) as u8;
+        let ch = match digit {
+            0..=9 => (b'0' + digit) as char,
+            _ => (b'A' + (digit - 10)) as char,
+        };
+        output.push(ch);
+        value /= 36;
+    }
+    output.reverse();
+    output.into_iter().collect()
+}
+
+fn deterministic_profile(token: Option<&str>) -> AccountProfile {
+    let source = token
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("limitless-guest");
+    let hash = stable_hash(source);
+
+    let mut left = to_base36(hash);
+    while left.len() < 6 {
+        left.insert(0, '0');
+    }
+    let left: String = left.chars().take(4).collect();
+
+    let mixed = (hash ^ 0x9e37_79b9).wrapping_mul(2_654_435_761);
+    let mut right = to_base36(mixed);
+    while right.len() < 6 {
+        right.insert(0, '0');
+    }
+    let right: String = right.chars().take(3).collect();
+
+    let adjective = PROFILE_ADJECTIVES[(hash as usize) % PROFILE_ADJECTIVES.len()];
+    let noun = PROFILE_NOUNS[((hash >> 7) as usize) % PROFILE_NOUNS.len()];
+    let suffix = ((hash >> 15) % 900) + 100;
+
+    AccountProfile {
+        profile_id: format!("LX-{left}{right}"),
+        nickname: format!("{adjective}{noun}{suffix}"),
+        avatar_data_url: None,
+        avatar_hue: (hash % 360) as u16,
+        created_at: None,
+    }
+}
+
+fn default_account_profile_placeholder() -> AccountProfile {
+    deterministic_profile(None)
+}
+
+fn normalize_account_profile(profile: AccountProfile, token: Option<&str>) -> AccountProfile {
+    let fallback = deterministic_profile(token);
+
+    AccountProfile {
+        profile_id: {
+            let value = profile.profile_id.trim();
+            if value.is_empty() {
+                fallback.profile_id
+            } else {
+                value.to_string()
+            }
+        },
+        nickname: {
+            let value = profile.nickname.trim();
+            if value.is_empty() {
+                fallback.nickname
+            } else {
+                value.to_string()
+            }
+        },
+        avatar_data_url: profile
+            .avatar_data_url
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+        avatar_hue: if profile.avatar_hue == 0 && fallback.avatar_hue != 0 {
+            fallback.avatar_hue
+        } else {
+            profile.avatar_hue
+        },
+        created_at: profile.created_at.or(fallback.created_at),
+    }
+}
+
+fn normalize_account_snapshot(mut snapshot: AccountSnapshot, token: Option<&str>) -> AccountSnapshot {
+    if snapshot.settings.theme.trim().is_empty() {
+        snapshot.settings.theme = default_theme();
+    }
+
+    snapshot.profile = normalize_account_profile(snapshot.profile, token);
+    snapshot
+}
+
+fn default_account_snapshot(token: Option<&str>) -> AccountSnapshot {
     AccountSnapshot {
         chats: vec![],
-        settings: AccountSettings {
-            gemini_api_key: String::new(),
-            theme: "dark".to_string(),
-        },
+        settings: default_account_settings(),
         current_chat_id: None,
+        profile: deterministic_profile(token),
         updated_at: None,
     }
 }
@@ -525,6 +699,38 @@ async fn send_admin_bridge_user_action(
     Ok(last_response.expect("admin bridge retries should store last response"))
 }
 
+fn enrich_admin_user_record(account_store: &AccountStore, user: &mut AdminUserRecord) {
+    let snapshot = account_store
+        .load(&user.token)
+        .unwrap_or_else(|| default_account_snapshot(Some(&user.token)));
+    let profile = normalize_account_profile(snapshot.profile, Some(&user.token));
+
+    user.profile_id = Some(profile.profile_id);
+    user.profile_nickname = Some(profile.nickname);
+    user.profile_avatar_data_url = profile.avatar_data_url;
+    user.profile_avatar_hue = Some(profile.avatar_hue);
+    user.profile_created_at = profile.created_at;
+}
+
+fn enrich_admin_users_response(account_store: &AccountStore, mut response: AdminUsersResponse) -> AdminUsersResponse {
+    for user in &mut response.users {
+        enrich_admin_user_record(account_store, user);
+    }
+
+    response
+}
+
+fn enrich_admin_user_action_response(
+    account_store: &AccountStore,
+    mut response: AdminUserActionResponse,
+) -> AdminUserActionResponse {
+    if let Some(user) = response.user.as_mut() {
+        enrich_admin_user_record(account_store, user);
+    }
+
+    response
+}
+
 async fn health_check() -> HttpResponse {
     HttpResponse::Ok().json(HealthResponse {
         status: "ok".to_string(),
@@ -599,7 +805,7 @@ async fn get_account_snapshot(request: HttpRequest, data: web::Data<AppState>) -
     let snapshot = data
         .account_store
         .load(&token)
-        .unwrap_or_else(default_account_snapshot);
+        .unwrap_or_else(|| default_account_snapshot(Some(&token)));
 
     HttpResponse::Ok().json(snapshot)
 }
@@ -619,9 +825,12 @@ async fn save_account_snapshot(
         .or_else(|| extract_bearer_token(&request))
         .unwrap_or_default();
 
-    let mut snapshot = body.into_inner();
+    let mut snapshot = normalize_account_snapshot(body.into_inner(), Some(&token));
     if snapshot.settings.theme.trim().is_empty() {
         snapshot.settings.theme = "dark".to_string();
+    }
+    if snapshot.profile.created_at.is_none() {
+        snapshot.profile.created_at = Some(chrono::Utc::now().to_rfc3339());
     }
     snapshot.updated_at = Some(chrono::Utc::now().to_rfc3339());
 
@@ -748,7 +957,9 @@ async fn admin_list_users(
             let body = resp.text().await.unwrap_or_default();
 
             match serde_json::from_str::<AdminUsersResponse>(&body) {
-                Ok(payload) if status.is_success() => HttpResponse::Ok().json(payload),
+                Ok(payload) if status.is_success() => {
+                    HttpResponse::Ok().json(enrich_admin_users_response(&data.account_store, payload))
+                }
                 Ok(payload) => HttpResponse::BadGateway().json(payload),
                 Err(_) => {
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)
@@ -791,7 +1002,9 @@ async fn admin_ban_user(
             let body = resp.text().await.unwrap_or_default();
 
             match serde_json::from_str::<AdminUserActionResponse>(&body) {
-                Ok(payload) if status.is_success() => HttpResponse::Ok().json(payload),
+                Ok(payload) if status.is_success() => {
+                    HttpResponse::Ok().json(enrich_admin_user_action_response(&data.account_store, payload))
+                }
                 Ok(payload) => HttpResponse::BadGateway().json(payload),
                 Err(_) => {
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)
@@ -832,7 +1045,9 @@ async fn admin_unban_user(
             let body = resp.text().await.unwrap_or_default();
 
             match serde_json::from_str::<AdminUserActionResponse>(&body) {
-                Ok(payload) if status.is_success() => HttpResponse::Ok().json(payload),
+                Ok(payload) if status.is_success() => {
+                    HttpResponse::Ok().json(enrich_admin_user_action_response(&data.account_store, payload))
+                }
                 Ok(payload) => HttpResponse::BadGateway().json(payload),
                 Err(_) => {
                     let bridge_error = serde_json::from_str::<serde_json::Value>(&body)

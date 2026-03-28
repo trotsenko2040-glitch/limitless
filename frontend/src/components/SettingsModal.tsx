@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccountProfile } from '../types';
 import { saveRemoteAccountSnapshot } from '../utils/accountApi';
+import { normalizeAccountProfile } from '../utils/profile';
+import { ProfileAvatar } from './ProfileAvatar';
 import {
   DEFAULT_PROMPT_NAME,
   fetchPromptConfig,
@@ -18,19 +21,30 @@ import './SettingsModal.css';
 
 interface SettingsModalProps {
   onClose: () => void;
+  profile: AccountProfile;
+  onProfileSaved?: (profile: AccountProfile) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, onProfileSaved }) => {
   const [apiKey, setApiKey] = useState('');
   const [promptName, setPromptName] = useState(DEFAULT_PROMPT_NAME);
+  const [nickname, setNickname] = useState(profile.nickname);
+  const [profileId, setProfileId] = useState(profile.profileId);
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(profile.avatarDataUrl);
+  const [avatarHue, setAvatarHue] = useState(profile.avatarHue);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [saveError, setSaveError] = useState('');
   const authToken = loadAuthToken();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const settings = loadSettings(authToken);
     setApiKey(settings.geminiApiKey || '');
+    setNickname(profile.nickname);
+    setProfileId(profile.profileId);
+    setAvatarDataUrl(profile.avatarDataUrl);
+    setAvatarHue(profile.avatarHue);
 
     let isMounted = true;
     fetchPromptConfig().then((config) => {
@@ -42,38 +56,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authToken, profile]);
+
+  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setSaveError('Можно загрузить только изображение для аватара.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('Аватар слишком большой. Используйте файл до 2 МБ.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarDataUrl(reader.result);
+        setSaveError('');
+      }
+    };
+    reader.onerror = () => {
+      setSaveError('Не удалось прочитать файл аватара.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setSaveError('');
 
     const nextSettings = { geminiApiKey: apiKey.trim(), theme: 'dark' as const };
+    const nextProfile = normalizeAccountProfile(
+      {
+        profileId,
+        nickname,
+        avatarDataUrl,
+        avatarHue,
+      },
+      authToken,
+    );
+
     saveSettings(nextSettings, authToken);
+    onProfileSaved?.(nextProfile);
 
     if (authToken) {
       const nextSnapshot = {
         ...loadAccountSnapshot(authToken),
         settings: nextSettings,
+        profile: nextProfile,
       };
+
       saveAccountSnapshot(nextSnapshot, authToken);
 
       try {
         await saveRemoteAccountSnapshot(authToken, loadOrCreateDeviceId(), nextSnapshot);
       } catch {
-        setSaveError('Не удалось сохранить настройки на сервере. Локально они сохранены.');
-        return;
+        setSaveError('Не удалось сохранить настройки на сервере. Локально они уже сохранены.');
       }
     }
 
     setSaved(true);
-    setTimeout(() => {
+    window.setTimeout(() => {
       setSaved(false);
       onClose();
     }, 1200);
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+  const handleOverlayClick = (event: React.MouseEvent) => {
+    if (event.target === event.currentTarget) {
       onClose();
     }
   };
@@ -99,6 +154,74 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
         <div className="settings-body">
           {saveError && <div className="settings-hint">{saveError}</div>}
+
+          <div className="settings-section">
+            <label className="settings-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M20 21a8 8 0 1 0-16 0" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Профиль
+            </label>
+
+            <div className="settings-profile-card">
+              <ProfileAvatar
+                className="settings-profile-avatar"
+                nickname={nickname}
+                avatarDataUrl={avatarDataUrl}
+                avatarHue={avatarHue}
+              />
+              <div className="settings-profile-meta">
+                <div className="settings-profile-id">{profileId}</div>
+                <div className="settings-profile-actions">
+                  <button
+                    type="button"
+                    className="settings-avatar-button"
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    Загрузить аву
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-avatar-button settings-avatar-button-muted"
+                    onClick={() => setAvatarDataUrl(null)}
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="settings-avatar-input"
+              onChange={handleAvatarUpload}
+            />
+
+            <div className="settings-input-group">
+              <input
+                type="text"
+                className="settings-input"
+                placeholder="Введите ник"
+                value={nickname}
+                onChange={(event) => setNickname(event.target.value)}
+                spellCheck={false}
+                maxLength={32}
+              />
+            </div>
+
+            <div className="settings-profile-id-row">
+              <span className="settings-profile-id-label">Profile ID</span>
+              <code className="settings-profile-id-code">{profileId}</code>
+            </div>
+
+            <p className="settings-hint">
+              У каждого профиля свой постоянный ID. Ник и аву можно менять в любой момент.
+            </p>
+          </div>
+
           <div className="settings-section">
             <label className="settings-label">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -118,7 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 className="settings-input"
                 placeholder="AIzaSy..."
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(event) => setApiKey(event.target.value)}
                 spellCheck={false}
               />
               <button

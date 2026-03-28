@@ -1,4 +1,5 @@
-import { Chat, UserSettings } from '../types';
+import { AccountProfile, Chat, UserSettings } from '../types';
+import { normalizeAccountProfile } from './profile';
 
 const LEGACY_CHATS_KEY = 'limitless_chats';
 const LEGACY_SETTINGS_KEY = 'limitless_settings';
@@ -11,11 +12,14 @@ const ACCOUNT_SCOPE_PREFIX = 'limitless_account';
 const CHATS_SUFFIX = 'chats';
 const SETTINGS_SUFFIX = 'settings';
 const CURRENT_CHAT_SUFFIX = 'current_chat';
+const PROFILE_SUFFIX = 'profile';
+const LEGACY_PROFILE_KEY = 'limitless_profile';
 
 export interface AccountSnapshot {
   chats: Chat[];
   settings: UserSettings;
   currentChatId: string | null;
+  profile: AccountProfile;
   updatedAt?: string | null;
 }
 
@@ -23,11 +27,12 @@ function createDefaultSettings(): UserSettings {
   return { geminiApiKey: '', theme: 'dark' };
 }
 
-function createEmptyAccountSnapshot(): AccountSnapshot {
+function createEmptyAccountSnapshot(token?: string | null): AccountSnapshot {
   return {
     chats: [],
     settings: createDefaultSettings(),
     currentChatId: null,
+    profile: normalizeAccountProfile(undefined, token),
     updatedAt: null,
   };
 }
@@ -67,6 +72,16 @@ function loadScopedCurrentChatId(token: string): string | null {
   return localStorage.getItem(getScopedKey(token, CURRENT_CHAT_SUFFIX));
 }
 
+function loadScopedProfile(token: string): AccountProfile {
+  return normalizeAccountProfile(
+    safeJsonParse<Partial<AccountProfile> | null>(
+      localStorage.getItem(getScopedKey(token, PROFILE_SUFFIX)),
+      null,
+    ),
+    token,
+  );
+}
+
 function saveScopedChats(token: string, chats: Chat[]): void {
   localStorage.setItem(getScopedKey(token, CHATS_SUFFIX), JSON.stringify(chats));
 }
@@ -84,11 +99,16 @@ function saveScopedCurrentChatId(token: string, id: string | null): void {
   }
 }
 
+function saveScopedProfile(token: string, profile: AccountProfile): void {
+  localStorage.setItem(getScopedKey(token, PROFILE_SUFFIX), JSON.stringify(profile));
+}
+
 function hasScopedAccountData(token: string): boolean {
   return (
     localStorage.getItem(getScopedKey(token, CHATS_SUFFIX)) !== null ||
     localStorage.getItem(getScopedKey(token, SETTINGS_SUFFIX)) !== null ||
-    localStorage.getItem(getScopedKey(token, CURRENT_CHAT_SUFFIX)) !== null
+    localStorage.getItem(getScopedKey(token, CURRENT_CHAT_SUFFIX)) !== null ||
+    localStorage.getItem(getScopedKey(token, PROFILE_SUFFIX)) !== null
   );
 }
 
@@ -97,6 +117,10 @@ function loadLegacyAccountSnapshot(): AccountSnapshot {
     chats: safeJsonParse<Chat[]>(localStorage.getItem(LEGACY_CHATS_KEY), []),
     settings: safeJsonParse<UserSettings>(localStorage.getItem(LEGACY_SETTINGS_KEY), createDefaultSettings()),
     currentChatId: localStorage.getItem(LEGACY_CURRENT_CHAT_KEY),
+    profile: normalizeAccountProfile(
+      safeJsonParse<Partial<AccountProfile> | null>(localStorage.getItem(LEGACY_PROFILE_KEY), null),
+      null,
+    ),
     updatedAt: null,
   };
 }
@@ -104,6 +128,7 @@ function loadLegacyAccountSnapshot(): AccountSnapshot {
 function saveLegacyAccountSnapshot(snapshot: AccountSnapshot): void {
   localStorage.setItem(LEGACY_CHATS_KEY, JSON.stringify(snapshot.chats));
   localStorage.setItem(LEGACY_SETTINGS_KEY, JSON.stringify(snapshot.settings));
+  localStorage.setItem(LEGACY_PROFILE_KEY, JSON.stringify(snapshot.profile));
   if (snapshot.currentChatId) {
     localStorage.setItem(LEGACY_CURRENT_CHAT_KEY, snapshot.currentChatId);
   } else {
@@ -115,20 +140,26 @@ export function hasMeaningfulAccountData(snapshot: AccountSnapshot): boolean {
   return (
     snapshot.chats.length > 0 ||
     Boolean(snapshot.currentChatId) ||
-    Boolean(snapshot.settings.geminiApiKey.trim())
+    Boolean(snapshot.settings.geminiApiKey.trim()) ||
+    Boolean(snapshot.profile.avatarDataUrl)
   );
 }
 
 export function loadAccountSnapshot(token?: string | null): AccountSnapshot {
   const resolvedToken = resolveToken(token);
   if (!resolvedToken) {
-    return loadLegacyAccountSnapshot();
+    const legacySnapshot = loadLegacyAccountSnapshot();
+    return {
+      ...legacySnapshot,
+      profile: normalizeAccountProfile(legacySnapshot.profile, null),
+    };
   }
 
   return {
     chats: loadScopedChats(resolvedToken),
     settings: loadScopedSettings(resolvedToken),
     currentChatId: loadScopedCurrentChatId(resolvedToken),
+    profile: loadScopedProfile(resolvedToken),
     updatedAt: null,
   };
 }
@@ -143,6 +174,7 @@ export function saveAccountSnapshot(snapshot: AccountSnapshot, token?: string | 
   saveScopedChats(resolvedToken, snapshot.chats);
   saveScopedSettings(resolvedToken, snapshot.settings);
   saveScopedCurrentChatId(resolvedToken, snapshot.currentChatId);
+  saveScopedProfile(resolvedToken, normalizeAccountProfile(snapshot.profile, resolvedToken));
 }
 
 export function migrateLegacyAccountData(token: string): AccountSnapshot {
@@ -197,6 +229,15 @@ export function saveSettings(settings: UserSettings, token?: string | null): voi
 
 export function loadSettings(token?: string | null): UserSettings {
   return loadAccountSnapshot(token).settings;
+}
+
+export function saveProfile(profile: AccountProfile, token?: string | null): void {
+  const snapshot = loadAccountSnapshot(token);
+  saveAccountSnapshot({ ...snapshot, profile }, token);
+}
+
+export function loadProfile(token?: string | null): AccountProfile {
+  return loadAccountSnapshot(token).profile;
 }
 
 export function saveAuthToken(token: string): void {

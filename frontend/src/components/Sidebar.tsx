@@ -1,9 +1,11 @@
 import React from 'react';
-import { Chat } from '../types';
+import { AccountProfile, Chat } from '../types';
+import { ProfileAvatar } from './ProfileAvatar';
 import './Sidebar.css';
 
 interface SidebarProps {
   isOpen: boolean;
+  profile: AccountProfile;
   chats: Chat[];
   currentChatId: string | null;
   onClose: () => void;
@@ -16,6 +18,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
+  profile,
   chats,
   currentChatId,
   onClose,
@@ -50,6 +53,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </svg>
         </button>
       </div>
+
+      <button className="sidebar-profile-card" type="button" onClick={onOpenSettings}>
+        <ProfileAvatar
+          className="sidebar-profile-avatar"
+          nickname={profile.nickname}
+          avatarDataUrl={profile.avatarDataUrl}
+          avatarHue={profile.avatarHue}
+        />
+        <div className="sidebar-profile-copy">
+          <strong className="sidebar-profile-name">{profile.nickname}</strong>
+          <span className="sidebar-profile-id">{profile.profileId}</span>
+        </div>
+      </button>
 
       <button className="new-chat-button" onClick={onNewChat}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

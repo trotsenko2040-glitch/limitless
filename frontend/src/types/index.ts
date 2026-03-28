@@ -18,6 +18,14 @@ export interface UserSettings {
   theme: 'dark' | 'light';
 }
 
+export interface AccountProfile {
+  profileId: string;
+  nickname: string;
+  avatarDataUrl: string | null;
+  avatarHue: number;
+  createdAt?: string | null;
+}
+
 export interface AuthState {
   isAuthenticated: boolean;
   token: string | null;

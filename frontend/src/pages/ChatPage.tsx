@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Chat, Message } from '../types';
+import { AccountProfile, Chat, Message } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { SettingsModal } from '../components/SettingsModal';
 import { CapsuleNav } from '../components/CapsuleNav';
@@ -12,6 +12,7 @@ import {
   generateChatTitle,
   generateId,
   hasMeaningfulAccountData,
+  loadAccountSnapshot,
   loadAuthToken,
   loadSettings,
   loadOrCreateDeviceId,
@@ -34,16 +35,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
   const authToken = React.useMemo(() => loadAuthToken(), []);
   const deviceId = React.useMemo(() => loadOrCreateDeviceId(), []);
   const initialAccountSnapshot = React.useMemo(
-    () => (authToken ? migrateLegacyAccountData(authToken) : {
-      chats: [],
-      settings: { geminiApiKey: '', theme: 'dark' as const },
-      currentChatId: null,
-      updatedAt: null,
-    }),
+    () => (authToken ? migrateLegacyAccountData(authToken) : loadAccountSnapshot(null)),
     [authToken],
   );
   const [chats, setChats] = useState<Chat[]>(() => initialAccountSnapshot.chats);
   const [currentChatId, setCurrentChatId] = useState<string | null>(() => initialAccountSnapshot.currentChatId);
+  const [profile, setProfile] = useState<AccountProfile>(() => initialAccountSnapshot.profile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -69,6 +66,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
     const localSnapshot = migrateLegacyAccountData(authToken);
     setChats(localSnapshot.chats);
     setCurrentChatId(localSnapshot.currentChatId);
+    setProfile(localSnapshot.profile);
 
     const syncAccount = async () => {
       try {
@@ -81,6 +79,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
           saveAccountSnapshot(remoteSnapshot, authToken);
           setChats(remoteSnapshot.chats);
           setCurrentChatId(remoteSnapshot.currentChatId);
+          setProfile(remoteSnapshot.profile);
         } else if (hasMeaningfulAccountData(localSnapshot)) {
           await saveRemoteAccountSnapshot(authToken, deviceId, localSnapshot);
         }
@@ -111,6 +110,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
       chats,
       settings: loadSettings(authToken),
       currentChatId,
+      profile,
       updatedAt: null,
     };
 
@@ -125,7 +125,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [accountReady, authToken, chats, currentChatId, deviceId]);
+  }, [accountReady, authToken, chats, currentChatId, deviceId, profile]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -298,6 +298,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
 
       <Sidebar
         isOpen={sidebarOpen}
+        profile={profile}
         chats={chats}
         currentChatId={currentChatId}
         onClose={() => setSidebarOpen(false)}
@@ -429,7 +430,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
       </div>
 
       {settingsOpen && (
-        <SettingsModal onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          profile={profile}
+          onProfileSaved={setProfile}
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
     </div>
   );
