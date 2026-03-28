@@ -8,6 +8,7 @@ import './LandingPage.css';
 interface LandingPageProps {
   onOpenAuth: () => void;
   onOpenAdmin?: () => void;
+  onOpenProfile?: () => void;
   navActionLabel?: string;
   primaryActionLabel?: string;
   isAuthenticated?: boolean;
@@ -17,6 +18,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenAuth,
   onOpenAdmin,
+  onOpenProfile,
   navActionLabel = 'Войти',
   primaryActionLabel = 'Войти по токену',
   isAuthenticated = false,
@@ -126,7 +128,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {isAuthenticated && profile ? (
-            <div className="landing-profile-chip" aria-label="Профиль пользователя">
+            <button type="button" className="landing-profile-chip landing-profile-chip-button" aria-label="Открыть профиль" onClick={onOpenProfile}>
               <ProfileAvatar
                 className="landing-profile-avatar"
                 nickname={profile.nickname}
@@ -138,7 +140,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span className="landing-profile-name">{profile.nickname}</span>
                 <span className="landing-profile-meta">{profile.profileId}</span>
               </div>
-            </div>
+            </button>
           ) : (
             <button type="button" className="landing-login-btn" onClick={onOpenAuth}>
               {navActionLabel}

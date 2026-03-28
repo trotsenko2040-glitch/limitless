@@ -4,6 +4,7 @@ import { AdminPage } from './pages/AdminPage';
 import { ChatPage } from './pages/ChatPage';
 import { AuthPage } from './pages/AuthPage';
 import { LandingPage } from './pages/LandingPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { UserAgreementPage } from './pages/UserAgreementPage';
 import { resolveAuthError } from './utils/authErrors';
 import { fetchApi } from './utils/api';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [showLandingWhileAuthenticated, setShowLandingWhileAuthenticated] = useState(false);
   const isAdminRoute = pathname.startsWith('/admin') || isSecretConsoleRoute;
   const isAgreementRoute = pathname.startsWith('/terms');
+  const isProfileRoute = pathname.startsWith('/profile');
 
   useEffect(() => {
     const handlePopState = () => setPathname(window.location.pathname);
@@ -168,6 +170,15 @@ const App: React.FC = () => {
     navigate('/admin');
   };
 
+  const handleOpenProfile = () => {
+    navigate('/profile');
+  };
+
+  const handleOpenChat = () => {
+    setShowLandingWhileAuthenticated(false);
+    navigate('/');
+  };
+
   const renderScene = (content: React.ReactNode) => (
     <>
       <GlobalStarfield />
@@ -209,6 +220,15 @@ const App: React.FC = () => {
     );
   }
 
+  if (isAuthenticated && isProfileRoute) {
+    return renderScene(
+      <ProfilePage
+        onBackHome={() => navigate('/')}
+        onOpenChat={handleOpenChat}
+      />,
+    );
+  }
+
   if (isAuthenticated && !showLandingWhileAuthenticated) {
     return renderScene(<ChatPage onGoHome={handleGoHome} />);
   }
@@ -218,6 +238,7 @@ const App: React.FC = () => {
       <LandingPage
         onOpenAuth={handleOpenFromLanding}
         onOpenAdmin={handleOpenAdminFromLanding}
+        onOpenProfile={handleOpenProfile}
         primaryActionLabel="Войти в чат"
         isAuthenticated
         profile={loadProfile()}
@@ -238,7 +259,7 @@ const App: React.FC = () => {
   }
 
   return renderScene(
-    <LandingPage onOpenAuth={handleOpenFromLanding} onOpenAdmin={handleOpenAdminFromLanding} />,
+    <LandingPage onOpenAuth={handleOpenFromLanding} onOpenAdmin={handleOpenAdminFromLanding} onOpenProfile={handleOpenProfile} />,
   );
 };
 

@@ -161,6 +161,19 @@
   box-shadow: 0 12px 28px rgba(76, 29, 149, 0.14);
 }
 
+.landing-profile-chip-button {
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+}
+
+.landing-profile-chip-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(167, 139, 250, 0.34);
+  background: rgba(139, 92, 246, 0.12);
+  box-shadow: 0 16px 34px rgba(76, 29, 149, 0.18);
+}
+
 .landing-profile-avatar {
   width: 40px;
   height: 40px;
