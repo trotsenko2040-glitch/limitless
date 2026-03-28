@@ -841,3 +841,59 @@
     gap: 10px;
   }
 }
+
+@media (max-width: 360px) {
+  .admin-shell {
+    width: min(100%, calc(100% - 10px));
+    padding:
+      calc(10px + var(--safe-top))
+      0
+      calc(10px + var(--safe-bottom));
+  }
+
+  .admin-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-title {
+    font-size: clamp(22px, 7.5vw, 28px);
+  }
+
+  .admin-subtitle,
+  .admin-banner,
+  .admin-section-subtitle {
+    font-size: 12px;
+  }
+
+  .admin-section {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .admin-tabs {
+    padding: 5px;
+  }
+
+  .admin-tab {
+    min-height: 42px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .admin-textarea {
+    min-height: 260px;
+    height: 260px;
+    font-size: 12px;
+  }
+
+  .admin-input {
+    padding: 12px;
+  }
+
+  .admin-stat-card,
+  .admin-user-card,
+  .admin-user-detail {
+    padding: 14px;
+  }
+}

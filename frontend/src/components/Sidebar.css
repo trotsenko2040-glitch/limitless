@@ -309,6 +309,10 @@
   .chat-item {
     padding: 12px;
   }
+
+  .sidebar-footer {
+    gap: 2px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -326,9 +330,13 @@
     height: 30px;
   }
 
+  .sidebar-brand-text {
+    letter-spacing: 2px;
+  }
+
   .new-chat-button {
     margin: 12px 12px 6px;
-    padding: 11px 14px;
+    padding: 10px 13px;
   }
 
   .sidebar-chats {
@@ -341,6 +349,62 @@
 
   .sidebar-footer {
     padding: 10px 12px calc(10px + var(--safe-bottom));
+  }
+}
+
+@media (max-width: 360px) {
+  .sidebar {
+    width: calc(100vw - 8px);
+    border-radius: 0 16px 16px 0;
+  }
+
+  .sidebar-header {
+    padding: calc(14px + var(--safe-top)) 12px 10px;
+  }
+
+  .sidebar-brand {
+    gap: 8px;
+  }
+
+  .sidebar-brand-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .sidebar-brand-text {
+    font-size: 12px;
+    letter-spacing: 1.6px;
+  }
+
+  .new-chat-button {
+    margin: 10px 10px 5px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .sidebar-chats {
+    padding: 4px 6px;
+  }
+
+  .chat-item {
+    padding: 10px 8px;
+  }
+
+  .chat-item-title {
+    font-size: 12px;
+  }
+
+  .chat-item-date {
+    font-size: 10px;
+  }
+
+  .sidebar-footer {
+    padding: 8px 10px calc(8px + var(--safe-bottom));
+  }
+
+  .sidebar-footer-btn {
+    padding: 9px 10px;
+    font-size: 12px;
   }
 }
 

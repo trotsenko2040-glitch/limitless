@@ -346,3 +346,59 @@
     padding: 12px 14px 14px;
   }
 }
+
+@media (max-width: 360px) {
+  .settings-overlay {
+    padding:
+      calc(6px + var(--safe-top))
+      calc(6px + var(--safe-right))
+      calc(6px + var(--safe-bottom))
+      calc(6px + var(--safe-left));
+  }
+
+  .settings-modal {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px);
+    border-radius: 16px;
+  }
+
+  .settings-header {
+    padding: 14px 12px 10px;
+  }
+
+  .settings-body {
+    padding: 12px;
+    gap: 14px;
+  }
+
+  .settings-section {
+    gap: 6px;
+  }
+
+  .settings-label {
+    font-size: 13px;
+  }
+
+  .settings-input {
+    padding: 13px 12px;
+  }
+
+  .toggle-visibility {
+    padding: 9px 12px;
+  }
+
+  .model-info,
+  .system-prompt-info {
+    gap: 7px;
+    padding: 10px 12px;
+  }
+
+  .settings-footer {
+    padding: 10px 12px 12px;
+  }
+
+  .settings-cancel,
+  .settings-save {
+    min-height: 44px;
+    font-size: 13px;
+  }
+}

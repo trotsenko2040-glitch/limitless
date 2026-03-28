@@ -257,7 +257,7 @@
 
 @media (max-width: 640px) {
   .messages-container {
-    padding-top: calc(74px + var(--safe-top));
+    padding-top: calc(70px + var(--safe-top));
     padding-right: calc(12px + var(--safe-right));
     padding-left: calc(12px + var(--safe-left));
   }
@@ -302,19 +302,19 @@
 
   .input-container {
     padding-right: calc(12px + var(--safe-right));
-    padding-bottom: calc(12px + var(--safe-bottom));
+    padding-bottom: calc(10px + var(--safe-bottom));
     padding-left: calc(12px + var(--safe-left));
   }
 
   .input-wrapper {
-    padding: 6px 6px 6px 14px;
+    padding: 5px 5px 5px 12px;
     border-radius: 20px;
   }
 
   .chat-input {
     font-size: 16px;
     line-height: 1.45;
-    max-height: 160px;
+    max-height: 144px;
   }
 
   .input-actions {
@@ -336,9 +336,14 @@
 
 @media (max-width: 420px) {
   .messages-container {
-    padding-top: calc(68px + var(--safe-top));
+    padding-top: calc(64px + var(--safe-top));
     padding-right: calc(10px + var(--safe-right));
     padding-left: calc(10px + var(--safe-left));
+  }
+
+  .messages-list {
+    gap: 4px;
+    padding-bottom: 12px;
   }
 
   .empty-state {
@@ -388,11 +393,12 @@
 
   .input-wrapper {
     border-radius: 18px;
-    padding: 5px 5px 5px 12px;
+    padding: 4px 4px 4px 10px;
   }
 
   .chat-input {
     min-height: 22px;
+    max-height: 132px;
   }
 
   .send-button,
@@ -403,6 +409,72 @@
 
   .input-hint {
     max-width: 260px;
-    margin: 8px auto 0;
+    margin: 6px auto 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .messages-container {
+    padding-top: calc(60px + var(--safe-top));
+    padding-right: calc(8px + var(--safe-right));
+    padding-left: calc(8px + var(--safe-left));
+  }
+
+  .messages-list {
+    gap: 3px;
+  }
+
+  .empty-state {
+    gap: 8px;
+    padding: 14px 2px 2px;
+  }
+
+  .empty-state-title {
+    font-size: 18px;
+    letter-spacing: 1.1px;
+  }
+
+  .empty-state-text {
+    max-width: 220px;
+    font-size: 12px;
+  }
+
+  .hint-chip {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 10.5px;
+  }
+
+  .chat-error {
+    width: calc(100% - 16px);
+    padding: 8px 9px;
+    font-size: 11.5px;
+  }
+
+  .input-container {
+    padding-right: calc(8px + var(--safe-right));
+    padding-bottom: calc(8px + var(--safe-bottom));
+    padding-left: calc(8px + var(--safe-left));
+  }
+
+  .input-wrapper {
+    border-radius: 16px;
+    padding: 4px 4px 4px 9px;
+  }
+
+  .chat-input {
+    padding: 10px 0;
+    max-height: 120px;
+  }
+
+  .send-button,
+  .stop-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .input-hint {
+    max-width: 240px;
+    font-size: 9.5px;
   }
 }
