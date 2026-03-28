@@ -159,6 +159,16 @@ def init_db() -> None:
     with get_connection() as connection:
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS admin_users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                added_by INTEGER,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS auth_tokens (
                 token TEXT PRIMARY KEY,
                 chat_id INTEGER NOT NULL UNIQUE,
@@ -316,8 +326,45 @@ def parse_discount_percent(raw_value: str) -> int:
     return int(normalized)
 
 
+def get_admin_user(connection: sqlite3.Connection, user_id: int):
+    row = connection.execute(
+        "SELECT * FROM admin_users WHERE user_id = ? LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def list_admin_users(connection: sqlite3.Connection) -> list[dict]:
+    rows = connection.execute(
+        "SELECT * FROM admin_users ORDER BY created_at ASC, user_id ASC"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def add_admin_user(connection: sqlite3.Connection, user_id: int, username: str | None, added_by: int) -> dict:
+    connection.execute(
+        """
+        INSERT INTO admin_users (user_id, username, added_by, created_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username = excluded.username,
+            added_by = excluded.added_by
+        """,
+        (user_id, username, added_by, now_iso()),
+    )
+    return get_admin_user(connection, user_id)
+
+
+def remove_admin_user(connection: sqlite3.Connection, user_id: int) -> None:
+    connection.execute("DELETE FROM admin_users WHERE user_id = ?", (user_id,))
+
+
 def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_CHAT_IDS
+    if user_id in ADMIN_CHAT_IDS:
+        return True
+    with db_lock:
+        with get_connection() as connection:
+            return get_admin_user(connection, user_id) is not None
 
 
 def get_token_by_chat_id(connection: sqlite3.Connection, chat_id: int):
@@ -1129,6 +1176,38 @@ def build_promo_list_message(promos: list[dict], title: str) -> str:
     )
 
 
+def build_admin_list_message(connection: sqlite3.Connection) -> str:
+    persistent_admins = list_admin_users(connection)
+    env_admins = sorted(ADMIN_CHAT_IDS)
+
+    lines = ["<b>Администраторы Limitless</b>", ""]
+
+    if env_admins:
+        lines.append("<b>Основные админы:</b>")
+        for admin_id in env_admins:
+            lines.append(f"• <code>{admin_id}</code> — основной админ")
+        lines.append("")
+
+    lines.append("<b>Добавленные через бота:</b>")
+    if not persistent_admins:
+        lines.append("• Пока нет")
+    else:
+        for admin in persistent_admins:
+            username = html.escape(str(admin.get("username") or "без username"))
+            added_by = admin.get("added_by")
+            suffix = f", добавил {added_by}" if added_by else ""
+            lines.append(f"• <code>{admin['user_id']}</code> — {username}{suffix}")
+
+    lines.extend([
+        "",
+        "Команды:",
+        "/addadmin &lt;id&gt; [username]",
+        "/removeadmin &lt;id&gt;",
+        "/adminlist",
+    ])
+    return "\n".join(lines)
+
+
 def activate_token(token: str, device_id: str) -> dict:
     token = token.strip()
     device_id = device_id.strip()
@@ -1210,6 +1289,29 @@ def activate_token(token: str, device_id: str) -> dict:
                 "error": None,
                 "token": token,
             }
+
+
+def build_admin_panel_text() -> str:
+    return (
+        "<b>Админ-панель Limitless</b>\n\n"
+        "Быстрые команды:\n"
+        "/addadmin &lt;id&gt; [username] — добавить админа\n"
+        "/removeadmin &lt;id&gt; — убрать админа\n"
+        "/adminlist — список админов\n"
+        "/createkey &lt;30|90|lifetime|days:N&gt; [count] — создать ключи\n"
+        "/createpromo &lt;CODE&gt; &lt;discount%&gt; [all|subscription_30d|subscription_90d|lifetime_access] [max_uses] — создать промокод\n"
+        "/keylist [unused|redeemed|all] [limit] — список ключей\n"
+        "/promolist [active|all] [limit] — список промокодов\n"
+        "/extend &lt;token&gt; &lt;days&gt; — вручную продлить токен\n\n"
+        "Пользовательские команды:\n"
+        "/shop — магазин\n"
+        "/promo &lt;код&gt; — применить промокод\n"
+        "/redeem &lt;ключ&gt; — активировать ключ"
+    )
+
+
+def parse_admin_target_id(raw_value: str) -> int:
+    return int(raw_value.strip())
 
 
 @bot.message_handler(commands=["start", "help"])
@@ -1423,6 +1525,91 @@ def handle_admin(message):
         parse_mode="HTML",
         reply_markup=build_admin_keyboard(),
     )
+
+
+@bot.message_handler(commands=["addadmin"])
+def handle_add_admin(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 2:
+        bot.send_message(message.chat.id, "Использование: /addadmin <id> [username]")
+        return
+
+    try:
+        target_user_id = parse_admin_target_id(parts[1])
+    except ValueError:
+        bot.send_message(message.chat.id, "ID администратора должен быть числом.")
+        return
+
+    username = parts[2].strip() if len(parts) == 3 else None
+    username = username or None
+
+    if target_user_id in ADMIN_CHAT_IDS:
+        bot.send_message(message.chat.id, f"<code>{target_user_id}</code> уже является основным админом.", parse_mode="HTML")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            existing_admin = get_admin_user(connection, target_user_id)
+            admin_record = add_admin_user(connection, target_user_id, username, message.from_user.id)
+            connection.commit()
+
+    status_text = "обновлен" if existing_admin else "добавлен"
+    display_name = html.escape(str(admin_record.get("username") or "без username"))
+    bot.send_message(
+        message.chat.id,
+        f"<b>Админ {status_text}</b>\n\nID: <code>{target_user_id}</code>\nUsername: {display_name}",
+        parse_mode="HTML",
+    )
+
+
+@bot.message_handler(commands=["removeadmin"])
+def handle_remove_admin(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) != 2:
+        bot.send_message(message.chat.id, "Использование: /removeadmin <id>")
+        return
+
+    try:
+        target_user_id = parse_admin_target_id(parts[1])
+    except ValueError:
+        bot.send_message(message.chat.id, "ID администратора должен быть числом.")
+        return
+
+    if target_user_id in ADMIN_CHAT_IDS:
+        bot.send_message(message.chat.id, "Основного админа из TELEGRAM_ADMIN_IDS удалить через бота нельзя.")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            existing_admin = get_admin_user(connection, target_user_id)
+            if not existing_admin:
+                bot.send_message(message.chat.id, "Такой добавленный админ не найден.")
+                return
+            remove_admin_user(connection, target_user_id)
+            connection.commit()
+
+    bot.send_message(message.chat.id, f"Админ <code>{target_user_id}</code> удален.", parse_mode="HTML")
+
+
+@bot.message_handler(commands=["adminlist"])
+def handle_admin_list(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            text = build_admin_list_message(connection)
+
+    bot.send_message(message.chat.id, text, parse_mode="HTML")
 
 
 @bot.message_handler(commands=["createkey"])
