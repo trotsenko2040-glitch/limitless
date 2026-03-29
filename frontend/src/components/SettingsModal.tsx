@@ -170,6 +170,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
                 nickname={nickname}
                 avatarDataUrl={avatarDataUrl}
                 avatarHue={avatarHue}
+                fallback="silhouette"
               />
               <div className="settings-profile-meta">
                 <div className="settings-profile-id">{profileId}</div>
