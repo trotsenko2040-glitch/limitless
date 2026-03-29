@@ -879,14 +879,79 @@
 }
 
 @media (max-width: 900px) {
+  .landing-nav-shell {
+    padding:
+      calc(12px + var(--safe-top))
+      calc(16px + var(--safe-right))
+      12px
+      calc(16px + var(--safe-left));
+  }
+
   .landing-nav-capsule {
-    flex-wrap: wrap;
-    justify-content: center;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
   }
 
   .landing-brand {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .landing-brand-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .landing-brand-text {
+    font-size: 13px;
+    letter-spacing: 3px;
+  }
+
+  .landing-mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  .landing-nav-links {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 22px;
+    border: 1px solid var(--border-primary);
+    background: rgba(14, 14, 24, 0.94);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(28px);
+    z-index: 5;
+  }
+
+  .landing-nav-links-open {
+    display: grid;
+  }
+
+  .landing-nav-link,
+  .landing-login-btn,
+  .landing-profile-chip {
+    min-height: 44px;
+    text-align: center;
+  }
+
+  .landing-nav-link-mobile-only {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+  }
+
+  .landing-profile-chip {
+    display: none;
   }
 
   .landing-grid {
@@ -953,46 +1018,11 @@
     min-width: 0;
   }
 
-  .landing-mobile-menu-btn {
-    display: inline-flex;
-  }
-
-  .landing-nav-links {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    left: 0;
-    display: none;
-    grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 10px;
-    border-radius: 20px;
-    border: 1px solid var(--border-primary);
-    background: rgba(14, 14, 24, 0.94);
-    box-shadow: var(--shadow-md);
-    backdrop-filter: blur(28px);
-    z-index: 5;
-  }
-
-  .landing-nav-links-open {
-    display: grid;
-  }
-
   .landing-nav-link,
   .landing-login-btn,
   .landing-profile-chip {
     min-height: 44px;
     text-align: center;
-  }
-
-  .landing-nav-link-mobile-only {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .landing-profile-chip {
-    display: none;
   }
 
   .landing-login-btn {
