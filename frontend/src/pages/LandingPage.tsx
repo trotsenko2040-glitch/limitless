@@ -30,6 +30,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [terminalMessage, setTerminalMessage] = useState('');
   const [terminalMessageType, setTerminalMessageType] = useState<'idle' | 'error' | 'success'>('idle');
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const terminalLines = [
     { kind: 'muted', text: 'limitless@node:~$ status' },
@@ -112,17 +113,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="landing-brand-text">LIMITLESS</span>
           </div>
 
-          <div className="landing-nav-links">
+          <button
+            type="button"
+            className={`landing-mobile-menu-btn${mobileNavOpen ? ' landing-mobile-menu-btn-open' : ''}`}
+            onClick={() => setMobileNavOpen((current) => !current)}
+            aria-label="Открыть разделы"
+            aria-expanded={mobileNavOpen}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <div className={`landing-nav-links${mobileNavOpen ? ' landing-nav-links-open' : ''}`}>
             <button type="button" className="landing-nav-link" onClick={openAgreement} title="Пользовательское соглашение">
               Соглашение
             </button>
-            <button type="button" className="landing-nav-link" onClick={() => scrollToSection('home')}>
+            <button type="button" className="landing-nav-link" onClick={() => { setMobileNavOpen(false); scrollToSection('home'); }}>
               Главная
             </button>
-            <button type="button" className="landing-nav-link" onClick={() => scrollToSection('about')}>
+            <button type="button" className="landing-nav-link" onClick={() => { setMobileNavOpen(false); scrollToSection('about'); }}>
               О нас
             </button>
-            <button type="button" className="landing-nav-link" onClick={openSupportBot}>
+            <button type="button" className="landing-nav-link" onClick={() => { setMobileNavOpen(false); openSupportBot(); }}>
               Поддержка
             </button>
           </div>

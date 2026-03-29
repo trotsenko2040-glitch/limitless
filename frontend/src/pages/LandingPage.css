@@ -86,6 +86,41 @@
   min-width: 0;
 }
 
+.landing-mobile-menu-btn {
+  display: none;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+}
+
+.landing-mobile-menu-btn span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.92;
+}
+
+.landing-mobile-menu-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(167, 139, 250, 0.34);
+}
+
+.landing-mobile-menu-btn-open {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(167, 139, 250, 0.42);
+}
+
 .landing-nav-link,
 .landing-login-btn,
 .landing-pill-btn,
@@ -899,8 +934,9 @@
   }
 
   .landing-nav-capsule {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
     padding: 10px;
@@ -913,24 +949,46 @@
     min-width: 0;
   }
 
+  .landing-mobile-menu-btn {
+    display: inline-flex;
+  }
+
   .landing-nav-links {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    display: none;
+    grid-template-columns: 1fr;
     gap: 8px;
-    grid-column: 1 / -1;
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border-primary);
+    background: rgba(14, 14, 24, 0.94);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(28px);
+    z-index: 5;
+  }
+
+  .landing-nav-links-open {
+    display: grid;
   }
 
   .landing-nav-link,
   .landing-login-btn,
   .landing-profile-chip {
-    width: 100%;
     min-height: 44px;
     text-align: center;
   }
 
   .landing-profile-chip {
     justify-content: flex-start;
+    width: auto;
+    max-width: min(220px, 100%);
+  }
+
+  .landing-login-btn {
+    width: auto;
   }
 
   .landing-content {
@@ -1089,8 +1147,11 @@
     letter-spacing: 2.4px;
   }
 
+  .landing-mobile-menu-btn {
+    justify-self: end;
+  }
+
   .landing-nav-links {
-    grid-template-columns: 1fr;
     gap: 6px;
   }
 
@@ -1106,6 +1167,8 @@
     gap: 10px;
     padding: 8px 10px;
     justify-content: flex-start;
+    width: 100%;
+    max-width: none;
   }
 
   .landing-profile-avatar {
