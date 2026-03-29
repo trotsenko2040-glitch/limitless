@@ -129,6 +129,10 @@
   outline: none;
 }
 
+.settings-input-masked {
+  -webkit-text-security: disc;
+}
+
 .settings-input::placeholder {
   color: var(--text-tertiary);
   font-family: 'Inter', sans-serif;
@@ -238,6 +242,14 @@
 
 .toggle-visibility:hover {
   color: var(--text-secondary);
+}
+
+.toggle-visibility[hidden] {
+  display: none !important;
+  width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
 }
 
 .model-info,

@@ -239,11 +239,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
             <div className="settings-input-group">
               <input
                 type="text"
-                className="settings-input"
+                className="settings-input settings-input-masked"
                 placeholder="AIzaSy..."
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
                 spellCheck={false}
+                autoComplete="off"
               />
               <button
                 className="toggle-visibility"
