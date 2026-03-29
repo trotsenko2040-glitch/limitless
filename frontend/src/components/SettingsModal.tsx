@@ -238,7 +238,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
             </p>
             <div className="settings-input-group">
               <input
-                type="password"
+                type="text"
                 className="settings-input"
                 placeholder="AIzaSy..."
                 value={apiKey}
