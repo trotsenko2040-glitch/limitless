@@ -1133,7 +1133,8 @@
   }
 
   .landing-nav-capsule {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     gap: 6px;
     padding: 8px;
     border-radius: 20px;
@@ -1141,8 +1142,9 @@
 
   .landing-brand {
     gap: 8px;
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-start;
   }
 
   .landing-brand-icon {
@@ -1156,6 +1158,7 @@
   }
 
   .landing-mobile-menu-btn {
+    grid-column: auto;
     justify-self: end;
   }
 
