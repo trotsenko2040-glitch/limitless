@@ -1,4 +1,4 @@
-import { Message } from '../types';
+import { Message, UserSettings } from '../types';
 import { fetchApi } from './api';
 import {
   fetchPromptConfig,
@@ -67,6 +67,18 @@ const GEMINI_MODELS: AIModelOption[] = [
   },
 ];
 
+const TRANSIENT_PROVIDER_ERRORS = [
+  'AI_PROVIDER_RATE_LIMITED',
+  'AI_PROVIDER_UNAVAILABLE',
+  'high demand',
+  'rate limit',
+  'try again later',
+  'temporarily unavailable',
+  'quota exceeded',
+  'resource exhausted',
+  'overloaded',
+];
+
 export function getProviderOptions(): AIProviderOption[] {
   return Object.values(PROVIDERS);
 }
@@ -81,6 +93,57 @@ export function getProviderConfig(providerId?: string | null): AIProviderOption 
 
 export function getDefaultModelId(providerId?: string | null): string {
   return providerId === 'gemini' ? GEMINI_MODEL_ID : DEFAULT_CHAT_MODEL_ID;
+}
+
+export function getProviderApiKey(settings: UserSettings, providerId: AIProviderId): string {
+  const scopedKey = settings.providerApiKeys?.[providerId]?.trim();
+  if (scopedKey) {
+    return scopedKey;
+  }
+
+  return settings.providerId === providerId ? settings.apiKey.trim() : '';
+}
+
+export function getProviderModelId(settings: UserSettings, providerId: AIProviderId): string {
+  const scopedModelId = settings.providerModelIds?.[providerId]?.trim();
+  if (scopedModelId) {
+    return scopedModelId;
+  }
+
+  if (settings.providerId === providerId && settings.selectedModelId.trim()) {
+    return settings.selectedModelId.trim();
+  }
+
+  return getDefaultModelId(providerId);
+}
+
+function isTransientProviderError(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return TRANSIENT_PROVIDER_ERRORS.some((pattern) => normalized.includes(pattern.toLowerCase()));
+}
+
+function getFallbackProviderId(providerId: AIProviderId): AIProviderId {
+  return providerId === 'sosiskibot' ? 'gemini' : 'sosiskibot';
+}
+
+async function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      window.clearTimeout(timeoutId);
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function normalizeModelDescription(model: Record<string, unknown>): string {
@@ -238,7 +301,7 @@ export async function fetchAvailableModels(
   return normalizeModelsPayload(payload);
 }
 
-export async function sendChatCompletion(
+async function sendChatCompletionViaProvider(
   messages: Message[],
   providerId: AIProviderId,
   apiKey: string,
@@ -288,6 +351,61 @@ export async function sendChatCompletion(
   }
 
   return content;
+}
+
+export async function sendChatCompletion(
+  messages: Message[],
+  settings: UserSettings,
+  signal?: AbortSignal,
+): Promise<string> {
+  const primaryProviderId = settings.providerId;
+  const primaryApiKey = getProviderApiKey(settings, primaryProviderId);
+  const primaryModelId = getProviderModelId(settings, primaryProviderId);
+
+  try {
+    return await sendChatCompletionViaProvider(
+      messages,
+      primaryProviderId,
+      primaryApiKey,
+      primaryModelId,
+      signal,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'AI API временно недоступен.';
+    if (!settings.autoFallbackEnabled || !isTransientProviderError(message)) {
+      throw error;
+    }
+
+    try {
+      await delay(800, signal);
+      return await sendChatCompletionViaProvider(
+        messages,
+        primaryProviderId,
+        primaryApiKey,
+        primaryModelId,
+        signal,
+      );
+    } catch (retryError) {
+      const retryMessage = retryError instanceof Error ? retryError.message : message;
+      if (!isTransientProviderError(retryMessage)) {
+        throw retryError;
+      }
+
+      const fallbackProviderId = getFallbackProviderId(primaryProviderId);
+      const fallbackApiKey = getProviderApiKey(settings, fallbackProviderId);
+      if (!fallbackApiKey) {
+        throw retryError;
+      }
+
+      return sendChatCompletionViaProvider(
+        messages,
+        fallbackProviderId,
+        fallbackApiKey,
+        getProviderModelId(settings, fallbackProviderId),
+        signal,
+      );
+    }
+  }
 }
 
 export function getFallbackModels(providerId: AIProviderId = DEFAULT_AI_PROVIDER_ID): AIModelOption[] {

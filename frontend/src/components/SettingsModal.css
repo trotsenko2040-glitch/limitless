@@ -107,6 +107,21 @@
   text-decoration: underline;
 }
 
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.settings-toggle input {
+  margin-top: 2px;
+  accent-color: #8b5cf6;
+}
+
 .settings-input-group {
   display: flex;
   align-items: center;

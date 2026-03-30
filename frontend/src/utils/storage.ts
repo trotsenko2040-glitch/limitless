@@ -31,6 +31,9 @@ type StoredSettings = Partial<UserSettings> & {
   aiProvider?: string;
   selectedModel?: string;
   model?: string;
+  providerApiKeys?: Partial<Record<'sosiskibot' | 'gemini', string>>;
+  providerModelIds?: Partial<Record<'sosiskibot' | 'gemini', string>>;
+  autoFallbackEnabled?: boolean;
 };
 
 type StoredAccountSnapshot = Omit<Partial<AccountSnapshot>, 'settings' | 'profile'> & {
@@ -42,7 +45,12 @@ function createDefaultSettings(): UserSettings {
   return {
     providerId: DEFAULT_AI_PROVIDER_ID,
     apiKey: '',
+    providerApiKeys: {},
     selectedModelId: getDefaultModelId(DEFAULT_AI_PROVIDER_ID),
+    providerModelIds: {
+      [DEFAULT_AI_PROVIDER_ID]: getDefaultModelId(DEFAULT_AI_PROVIDER_ID),
+    },
+    autoFallbackEnabled: true,
     theme: 'dark',
   };
 }
@@ -92,11 +100,45 @@ function normalizeSettings(settings?: StoredSettings | null): UserSettings {
         : '';
 
   const providerId = providerSource === 'gemini' ? 'gemini' : DEFAULT_AI_PROVIDER_ID;
+  const rawProviderApiKeys = settings?.providerApiKeys ?? {};
+  const rawProviderModelIds = settings?.providerModelIds ?? {};
+
+  const providerApiKeys: Partial<Record<'sosiskibot' | 'gemini', string>> = {
+    sosiskibot: typeof rawProviderApiKeys.sosiskibot === 'string' ? rawProviderApiKeys.sosiskibot.trim() : '',
+    gemini: typeof rawProviderApiKeys.gemini === 'string'
+      ? rawProviderApiKeys.gemini.trim()
+      : typeof settings?.geminiApiKey === 'string'
+        ? settings.geminiApiKey.trim()
+        : '',
+  };
+
+  if (!providerApiKeys[providerId] && apiKeySource.trim()) {
+    providerApiKeys[providerId] = apiKeySource.trim();
+  }
+
+  const providerModelIds: Partial<Record<'sosiskibot' | 'gemini', string>> = {
+    sosiskibot: typeof rawProviderModelIds.sosiskibot === 'string' && rawProviderModelIds.sosiskibot.trim()
+      ? rawProviderModelIds.sosiskibot.trim()
+      : providerId === 'sosiskibot' && selectedModelSource.trim()
+        ? selectedModelSource.trim()
+        : getDefaultModelId('sosiskibot'),
+    gemini: typeof rawProviderModelIds.gemini === 'string' && rawProviderModelIds.gemini.trim()
+      ? rawProviderModelIds.gemini.trim()
+      : providerId === 'gemini' && selectedModelSource.trim()
+        ? selectedModelSource.trim()
+        : getDefaultModelId('gemini'),
+  };
+
+  const currentApiKey = providerApiKeys[providerId]?.trim() || '';
+  const currentModelId = providerModelIds[providerId]?.trim() || getDefaultModelId(providerId);
 
   return {
     providerId,
-    apiKey: apiKeySource.trim(),
-    selectedModelId: selectedModelSource.trim() || getDefaultModelId(providerId),
+    apiKey: currentApiKey,
+    providerApiKeys,
+    selectedModelId: currentModelId,
+    providerModelIds,
+    autoFallbackEnabled: settings?.autoFallbackEnabled !== false,
     theme,
   };
 }
@@ -211,6 +253,7 @@ export function hasMeaningfulAccountData(snapshot: AccountSnapshot): boolean {
     snapshot.chats.length > 0 ||
     Boolean(snapshot.currentChatId) ||
     Boolean(snapshot.settings.apiKey.trim()) ||
+    Object.values(snapshot.settings.providerApiKeys || {}).some((value) => Boolean(value?.trim())) ||
     Boolean(snapshot.profile.avatarDataUrl)
   );
 }

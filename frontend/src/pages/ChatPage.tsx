@@ -19,7 +19,7 @@ import {
   saveAccountSnapshot,
 } from '../utils/storage';
 import { DEFAULT_PROMPT_NAME, fetchPromptConfig } from '../utils/gemini';
-import { getProviderConfig, sendChatCompletion } from '../utils/aiProvider';
+import { getProviderApiKey, getProviderConfig, sendChatCompletion } from '../utils/aiProvider';
 import './ChatPage.css';
 
 interface ChatPageProps {
@@ -179,7 +179,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
     }
 
     const settings = loadAccountSnapshot(authToken).settings;
-    if (!settings.apiKey) {
+    if (!getProviderApiKey(settings, settings.providerId)) {
       setError(`API ключ не настроен. Откройте настройки и добавьте ключ ${getProviderConfig(settings.providerId).label}.`);
       return;
     }
@@ -220,9 +220,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onGoHome }) => {
     try {
       const responseText = await sendChatCompletion(
         updatedChat.messages,
-        settings.providerId,
-        settings.apiKey,
-        settings.selectedModelId,
+        settings,
         abortController.signal,
       );
 

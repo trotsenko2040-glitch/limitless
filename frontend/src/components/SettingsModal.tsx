@@ -33,7 +33,10 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, onProfileSaved }) => {
   const [providerId, setProviderId] = useState<AIProviderId>(DEFAULT_AI_PROVIDER_ID);
   const [apiKey, setApiKey] = useState('');
+  const [providerApiKeys, setProviderApiKeys] = useState<Partial<Record<AIProviderId, string>>>({});
   const [selectedModelId, setSelectedModelId] = useState(getDefaultModelId(DEFAULT_AI_PROVIDER_ID));
+  const [providerModelIds, setProviderModelIds] = useState<Partial<Record<AIProviderId, string>>>({});
+  const [autoFallbackEnabled, setAutoFallbackEnabled] = useState(true);
   const [promptName, setPromptName] = useState(DEFAULT_PROMPT_NAME);
   const [nickname, setNickname] = useState(profile.nickname);
   const [profileId, setProfileId] = useState(profile.profileId);
@@ -50,9 +53,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
 
   useEffect(() => {
     const settings = loadSettings(authToken);
-    setProviderId(settings.providerId || DEFAULT_AI_PROVIDER_ID);
-    setApiKey(settings.apiKey || '');
-    setSelectedModelId(settings.selectedModelId || getDefaultModelId(settings.providerId));
+    const nextProviderId = settings.providerId || DEFAULT_AI_PROVIDER_ID;
+    const nextProviderApiKeys = settings.providerApiKeys || {};
+    const nextProviderModelIds = settings.providerModelIds || {};
+
+    setProviderId(nextProviderId);
+    setProviderApiKeys(nextProviderApiKeys);
+    setProviderModelIds(nextProviderModelIds);
+    setAutoFallbackEnabled(settings.autoFallbackEnabled !== false);
+    setApiKey(nextProviderApiKeys[nextProviderId] || settings.apiKey || '');
+    setSelectedModelId(nextProviderModelIds[nextProviderId] || settings.selectedModelId || getDefaultModelId(nextProviderId));
     setNickname(profile.nickname);
     setProfileId(profile.profileId);
     setAvatarDataUrl(profile.avatarDataUrl);
@@ -79,7 +89,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
       const fallbackModels = getFallbackModels(providerId);
       setModels(fallbackModels);
       if (!fallbackModels.some((model) => model.id === selectedModelId)) {
-        setSelectedModelId(fallbackModels[0]?.id || getDefaultModelId(providerId));
+        const nextModelId = fallbackModels[0]?.id || getDefaultModelId(providerId);
+        setSelectedModelId(nextModelId);
+        setProviderModelIds((current) => ({ ...current, [providerId]: nextModelId }));
       }
       setModelsError('');
       return () => controller.abort();
@@ -96,7 +108,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
 
         setModels(nextModels);
         if (!nextModels.some((model) => model.id === selectedModelId)) {
-          setSelectedModelId(nextModels[0]?.id || getDefaultModelId(providerId));
+          const nextModelId = nextModels[0]?.id || getDefaultModelId(providerId);
+          setSelectedModelId(nextModelId);
+          setProviderModelIds((current) => ({ ...current, [providerId]: nextModelId }));
         }
       })
       .catch((error: Error) => {
@@ -154,7 +168,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
       const fallbackModels = getFallbackModels(providerId);
       setModels(fallbackModels);
       if (!fallbackModels.some((model) => model.id === selectedModelId)) {
-        setSelectedModelId(fallbackModels[0]?.id || getDefaultModelId(providerId));
+        const nextModelId = fallbackModels[0]?.id || getDefaultModelId(providerId);
+        setSelectedModelId(nextModelId);
+        setProviderModelIds((current) => ({ ...current, [providerId]: nextModelId }));
       }
       setModelsError('Сначала добавьте API ключ.');
       return;
@@ -167,7 +183,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
       const nextModels = await fetchAvailableModels(providerId, trimmedApiKey);
       setModels(nextModels);
       if (!nextModels.some((model) => model.id === selectedModelId)) {
-        setSelectedModelId(nextModels[0]?.id || getDefaultModelId(providerId));
+        const nextModelId = nextModels[0]?.id || getDefaultModelId(providerId);
+        setSelectedModelId(nextModelId);
+        setProviderModelIds((current) => ({ ...current, [providerId]: nextModelId }));
       }
     } catch (error: any) {
       setModelsError(error?.message || 'Не удалось обновить список моделей.');
@@ -182,7 +200,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
     const nextSettings = {
       providerId,
       apiKey: apiKey.trim(),
+      providerApiKeys: {
+        ...providerApiKeys,
+        [providerId]: apiKey.trim(),
+      },
       selectedModelId: selectedModelId.trim() || getDefaultModelId(providerId),
+      providerModelIds: {
+        ...providerModelIds,
+        [providerId]: selectedModelId.trim() || getDefaultModelId(providerId),
+      },
+      autoFallbackEnabled,
       theme: 'dark' as const,
     };
     const nextProfile = normalizeAccountProfile(
@@ -333,7 +360,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
                 <select
                   className="settings-select"
                   value={providerId}
-                  onChange={(event) => setProviderId(event.target.value as AIProviderId)}
+                  onChange={(event) => {
+                    const nextProviderId = event.target.value as AIProviderId;
+                    setProviderId(nextProviderId);
+                    setApiKey(providerApiKeys[nextProviderId] || '');
+                    setSelectedModelId(providerModelIds[nextProviderId] || getDefaultModelId(nextProviderId));
+                    setModels(getFallbackModels(nextProviderId));
+                    setModelsError('');
+                  }}
                 >
                   {providerOptions.map((provider) => (
                     <option key={provider.id} value={provider.id}>
@@ -344,6 +378,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
               </div>
             </div>
             <p className="settings-hint">{providerConfig.description}</p>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={autoFallbackEnabled}
+                onChange={(event) => setAutoFallbackEnabled(event.target.checked)}
+              />
+              <span>Автопереключение на запасной провайдер при лимите или перегрузе</span>
+            </label>
           </div>
 
           <div className="settings-section">
@@ -366,7 +408,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
                 className={`settings-input${showKey ? '' : ' settings-input-masked'}`}
                 placeholder="Bearer key..."
                 value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
+                onChange={(event) => {
+                  const nextApiKey = event.target.value;
+                  setApiKey(nextApiKey);
+                  setProviderApiKeys((current) => ({ ...current, [providerId]: nextApiKey }));
+                }}
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -405,7 +451,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, profile, 
                 <select
                   className="settings-select"
                   value={selectedModelId}
-                  onChange={(event) => setSelectedModelId(event.target.value)}
+                  onChange={(event) => {
+                    const nextModelId = event.target.value;
+                    setSelectedModelId(nextModelId);
+                    setProviderModelIds((current) => ({ ...current, [providerId]: nextModelId }));
+                  }}
                   disabled={modelsLoading}
                 >
                   {models.map((model) => (

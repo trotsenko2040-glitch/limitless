@@ -113,10 +113,16 @@ pub struct AccountChat {
 pub struct AccountSettings {
     #[serde(default, alias = "geminiApiKey")]
     pub api_key: String,
+    #[serde(default)]
+    pub provider_api_keys: HashMap<String, String>,
     #[serde(default = "default_ai_provider_id", alias = "provider", alias = "aiProvider")]
     pub provider_id: String,
     #[serde(default = "default_chat_model_id", alias = "selectedModel")]
     pub selected_model_id: String,
+    #[serde(default)]
+    pub provider_model_ids: HashMap<String, String>,
+    #[serde(default = "default_auto_fallback_enabled")]
+    pub auto_fallback_enabled: bool,
     #[serde(default = "default_theme")]
     pub theme: String,
 }
@@ -610,11 +616,18 @@ fn default_chat_model_id() -> String {
     DEFAULT_CHAT_MODEL_ID.to_string()
 }
 
+fn default_auto_fallback_enabled() -> bool {
+    true
+}
+
 fn default_account_settings() -> AccountSettings {
     AccountSettings {
         api_key: String::new(),
+        provider_api_keys: HashMap::new(),
         provider_id: default_ai_provider_id(),
         selected_model_id: default_chat_model_id(),
+        provider_model_ids: HashMap::new(),
+        auto_fallback_enabled: default_auto_fallback_enabled(),
         theme: default_theme(),
     }
 }
@@ -719,10 +732,6 @@ fn normalize_account_profile(profile: AccountProfile, token: Option<&str>) -> Ac
 }
 
 fn normalize_account_snapshot(mut snapshot: AccountSnapshot, token: Option<&str>) -> AccountSnapshot {
-    if snapshot.settings.api_key.trim().is_empty() {
-        snapshot.settings.api_key = String::new();
-    }
-
     if snapshot.settings.provider_id.trim().is_empty() {
         snapshot.settings.provider_id = default_ai_provider_id();
     }
@@ -731,12 +740,58 @@ fn normalize_account_snapshot(mut snapshot: AccountSnapshot, token: Option<&str>
         snapshot.settings.provider_id = default_ai_provider_id();
     }
 
-    if snapshot.settings.selected_model_id.trim().is_empty() {
-        snapshot.settings.selected_model_id = default_chat_model_id();
+    snapshot
+        .settings
+        .provider_api_keys
+        .retain(|provider, _| provider == "sosiskibot" || provider == "gemini");
+
+    if !snapshot.settings.api_key.trim().is_empty() {
+        snapshot.settings.provider_api_keys.insert(
+            snapshot.settings.provider_id.clone(),
+            snapshot.settings.api_key.trim().to_string(),
+        );
     }
+
+    snapshot.settings.api_key = snapshot
+        .settings
+        .provider_api_keys
+        .get(&snapshot.settings.provider_id)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_default();
+
+    snapshot
+        .settings
+        .provider_model_ids
+        .retain(|provider, _| provider == "sosiskibot" || provider == "gemini");
+
+    if !snapshot.settings.selected_model_id.trim().is_empty() {
+        snapshot.settings.provider_model_ids.insert(
+            snapshot.settings.provider_id.clone(),
+            snapshot.settings.selected_model_id.trim().to_string(),
+        );
+    }
+
+    snapshot.settings.selected_model_id = snapshot
+        .settings
+        .provider_model_ids
+        .get(&snapshot.settings.provider_id)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| {
+            if snapshot.settings.provider_id == "gemini" {
+                "gemini-3-flash-preview".to_string()
+            } else {
+                default_chat_model_id()
+            }
+        });
 
     if snapshot.settings.theme.trim().is_empty() {
         snapshot.settings.theme = default_theme();
+    }
+
+    if !snapshot.settings.auto_fallback_enabled {
+        snapshot.settings.auto_fallback_enabled = false;
     }
 
     snapshot.profile = normalize_account_profile(snapshot.profile, token);

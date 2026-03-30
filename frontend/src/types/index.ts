@@ -16,7 +16,10 @@ export interface Chat {
 export interface UserSettings {
   providerId: 'sosiskibot' | 'gemini';
   apiKey: string;
+  providerApiKeys: Partial<Record<'sosiskibot' | 'gemini', string>>;
   selectedModelId: string;
+  providerModelIds: Partial<Record<'sosiskibot' | 'gemini', string>>;
+  autoFallbackEnabled: boolean;
   theme: 'dark' | 'light';
 }
 
