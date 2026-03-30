@@ -281,42 +281,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(92, 52, 204, 0.16), transparent 28%),
-    radial-gradient(circle at 80% 22%, rgba(157, 107, 255, 0.14), transparent 30%),
-    radial-gradient(circle at 54% 78%, rgba(255, 159, 252, 0.1), transparent 36%),
-    linear-gradient(180deg, rgba(10, 10, 15, 0.3) 0%, rgba(10, 10, 15, 0.12) 45%, rgba(10, 10, 15, 0.22) 100%);
-}
-
-.global-starfield-canvas,
-.global-starfield-noise,
-.global-starfield-vignette {
-  position: absolute;
-  inset: 0;
-}
-
-.global-starfield-canvas {
-  width: 100%;
-  height: 100%;
-  opacity: 0.94;
-}
-
-.global-starfield-vignette {
-  background:
-    radial-gradient(circle at center, rgba(9, 10, 17, 0) 0%, rgba(9, 10, 17, 0.08) 55%, rgba(9, 10, 17, 0.34) 100%),
-    linear-gradient(180deg, rgba(6, 7, 12, 0.1) 0%, rgba(6, 7, 12, 0) 20%, rgba(6, 7, 12, 0.14) 100%);
-  mix-blend-mode: screen;
-}
-
-.global-starfield-noise {
-  opacity: 0.06;
-  background-image:
-    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.55) 0 0.6px, transparent 0.8px),
-    radial-gradient(circle at 67% 42%, rgba(255, 255, 255, 0.42) 0 0.8px, transparent 1px),
-    radial-gradient(circle at 82% 74%, rgba(255, 255, 255, 0.38) 0 0.7px, transparent 1px),
-    linear-gradient(120deg, rgba(255, 255, 255, 0.05), transparent 28%, rgba(255, 255, 255, 0.03) 48%, transparent 72%);
-  background-size: 220px 220px, 260px 260px, 300px 300px, 100% 100%;
-  mix-blend-mode: screen;
 }
 
 .global-star {
@@ -327,7 +291,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   height: calc(var(--star-size) * 1px);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
-  opacity: calc(var(--star-opacity) * 0.85);
+  opacity: var(--star-opacity);
   box-shadow: 0 0 14px rgba(255, 255, 255, 0.26);
   animation:
     starDrift var(--star-duration) ease-in-out infinite alternate,
@@ -392,22 +356,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: none;
   }
 
-  .global-starfield {
-    background:
-      radial-gradient(circle at 16% 14%, rgba(92, 52, 204, 0.14), transparent 26%),
-      radial-gradient(circle at 82% 24%, rgba(157, 107, 255, 0.1), transparent 28%),
-      radial-gradient(circle at 52% 80%, rgba(255, 159, 252, 0.08), transparent 32%),
-      linear-gradient(180deg, rgba(10, 10, 15, 0.26) 0%, rgba(10, 10, 15, 0.1) 48%, rgba(10, 10, 15, 0.2) 100%);
-  }
-
-  .global-starfield-canvas {
-    opacity: 0.88;
-  }
-
-  .global-starfield-noise {
-    opacity: 0.04;
-  }
-
   .bg-orb {
     filter: blur(90px);
     opacity: 0.12;
@@ -434,10 +382,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .global-starfield-canvas {
-    opacity: 0.72;
-  }
-
   .global-star {
     animation: none;
     opacity: 0.42;
