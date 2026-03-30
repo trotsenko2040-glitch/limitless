@@ -64,10 +64,10 @@ PLANS = [
         "id": "subscription_30d",
         "callback_data": "buy_subscription_30d",
         "days": 30,
-        "stars": 15,
+        "stars": 25,
         "title": "Limitless на 30 дней",
         "description": "Доступ Limitless на 30 дней",
-        "button_text": "30 дней · 15 stars",
+        "button_text": "30 дней · 25 stars",
         "subscription_plan": "subscription_30d",
         "permanent": False,
     },
@@ -75,10 +75,10 @@ PLANS = [
         "id": "subscription_90d",
         "callback_data": "buy_subscription_90d",
         "days": 90,
-        "stars": 40,
+        "stars": 75,
         "title": "Limitless на 90 дней",
         "description": "Доступ Limitless на 90 дней",
-        "button_text": "90 дней · 40 stars",
+        "button_text": "90 дней · 75 stars",
         "subscription_plan": "subscription_90d",
         "permanent": False,
     },
@@ -86,10 +86,10 @@ PLANS = [
         "id": "lifetime_access",
         "callback_data": "buy_lifetime_access",
         "days": 0,
-        "stars": 100,
+        "stars": 150,
         "title": "Limitless навсегда",
         "description": "Постоянный доступ к Limitless",
-        "button_text": "Навсегда · 100 stars",
+        "button_text": "Навсегда · 150 stars",
         "subscription_plan": "lifetime",
         "permanent": True,
     },
@@ -261,6 +261,16 @@ def init_db() -> None:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS plan_prices (
+                    plan_id TEXT PRIMARY KEY,
+                    stars INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    updated_by BIGINT
+                )
+                """
+            )
         else:
             connection.execute(
                 """
@@ -347,6 +357,16 @@ def init_db() -> None:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS plan_prices (
+                    plan_id TEXT PRIMARY KEY,
+                    stars INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    updated_by INTEGER
+                )
+                """
+            )
         ensure_column(connection, "auth_tokens", "activated_ip", "TEXT")
         ensure_column(connection, "star_payments", "plan_id", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "star_payments", "promo_code", "TEXT")
@@ -414,6 +434,7 @@ def migrate_sqlite_db_to_postgres() -> None:
             "expires_at",
         ],
         "chat_promos": ["chat_id", "promo_code", "applied_at"],
+        "plan_prices": ["plan_id", "stars", "updated_at", "updated_by"],
     }
 
     def source_values(table_name: str, columns: list[str]) -> list[tuple]:
@@ -631,6 +652,56 @@ def build_custom_plan(days: int) -> dict:
         "subscription_plan": "manual_key",
         "permanent": False,
     }
+
+
+def get_plan_price_override(connection: sqlite3.Connection, plan_id: str):
+    row = connection.execute(
+        "SELECT * FROM plan_prices WHERE plan_id = ? LIMIT 1",
+        (plan_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def set_plan_price_override(connection: sqlite3.Connection, plan_id: str, stars: int, updated_by: int):
+    connection.execute(
+        """
+        INSERT INTO plan_prices (plan_id, stars, updated_at, updated_by)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(plan_id) DO UPDATE SET
+            stars = excluded.stars,
+            updated_at = excluded.updated_at,
+            updated_by = excluded.updated_by
+        """,
+        (plan_id, int(stars), now_iso(), updated_by),
+    )
+    return get_plan_price_override(connection, plan_id)
+
+
+def get_effective_plan(connection: sqlite3.Connection, plan_or_plan_id: dict | str):
+    base_plan = PLANS_BY_ID.get(plan_or_plan_id) if isinstance(plan_or_plan_id, str) else plan_or_plan_id
+    if not base_plan:
+        return None
+
+    effective_plan = dict(base_plan)
+    if effective_plan["id"] in PLANS_BY_ID:
+        price_override = get_plan_price_override(connection, effective_plan["id"])
+        if price_override:
+            effective_plan["stars"] = int(price_override["stars"])
+
+    effective_plan["button_text"] = f"{format_plan_label(effective_plan)} · {int(effective_plan['stars'])} stars"
+    return effective_plan
+
+
+def list_effective_plans(connection: sqlite3.Connection) -> list[dict]:
+    return [get_effective_plan(connection, plan) for plan in PLANS]
+
+
+def build_price_list_message(connection: sqlite3.Connection, title: str) -> str:
+    lines = [f"<b>{title}</b>", ""]
+    for plan in list_effective_plans(connection):
+        lines.append(f"• {format_plan_label(plan)} — <code>{plan['id']}</code> — {int(plan['stars'])} stars")
+    lines.extend(["", "/setprice &lt;30|90|lifetime&gt; &lt;stars&gt;"])
+    return "\n".join(lines)
 
 
 def resolve_plan_spec(plan_spec: str):
@@ -1217,7 +1288,8 @@ def build_purchase_keyboard_for_chat(chat_id: int | None) -> types.InlineKeyboar
     keyboard = types.InlineKeyboardMarkup()
     with db_lock:
         with get_connection() as connection:
-            for plan in PLANS:
+            for base_plan in PLANS:
+                plan = get_effective_plan(connection, base_plan)
                 promo_code = get_active_chat_promo(connection, chat_id, plan) if chat_id is not None else None
                 button_text = plan["button_text"]
                 discounted_stars = None
@@ -1249,8 +1321,8 @@ def parse_invoice_payload(invoice_payload: str):
     if len(parts) < 2:
         return None
 
-    plan = PLANS_BY_ID.get(parts[0])
-    if not plan:
+    plan_id = parts[0]
+    if plan_id not in PLANS_BY_ID:
         return None
 
     try:
@@ -1263,7 +1335,7 @@ def parse_invoice_payload(invoice_payload: str):
         promo_code = normalize_promo_code(parts[2])
 
     return {
-        "plan": plan,
+        "plan_id": plan_id,
         "expected_chat_id": expected_chat_id,
         "promo_code": promo_code,
     }
@@ -1294,9 +1366,11 @@ def format_license_key_summary(license_key: dict) -> str:
 
 def build_plans_message(chat_id: int | None = None) -> str:
     active_promo = None
-    if chat_id is not None:
-        with db_lock:
-            with get_connection() as connection:
+    effective_plans = [dict(plan) for plan in PLANS]
+    with db_lock:
+        with get_connection() as connection:
+            effective_plans = list_effective_plans(connection)
+            if chat_id is not None:
                 active_promo = get_active_chat_promo(connection, chat_id)
 
     lines = [
@@ -1305,7 +1379,7 @@ def build_plans_message(chat_id: int | None = None) -> str:
         "Токен создается только после первой успешной оплаты или активации ключа и затем остается вашим основным токеном.",
         "",
     ]
-    for plan in PLANS:
+    for plan in effective_plans:
         applicable_promo = None
         if active_promo and active_promo.get("target_plan_id", "all") in {"all", plan["id"]}:
             applicable_promo = active_promo
@@ -1339,23 +1413,26 @@ def send_subscription_offer(chat_id: int) -> None:
 
 def send_subscription_invoice(chat_id: int, plan: dict) -> None:
     promo_code = None
-    amount = int(plan["stars"])
+    effective_plan = dict(plan)
+    amount = int(effective_plan["stars"])
     with db_lock:
         with get_connection() as connection:
-            active_promo = get_active_chat_promo(connection, chat_id, plan)
+            effective_plan = get_effective_plan(connection, plan)
+            amount = int(effective_plan["stars"])
+            active_promo = get_active_chat_promo(connection, chat_id, effective_plan)
             if active_promo:
                 promo_code = active_promo["code"]
-                amount = calculate_discounted_stars(plan, active_promo)
+                amount = calculate_discounted_stars(effective_plan, active_promo)
 
     bot.send_invoice(
         chat_id=chat_id,
-        title=plan["title"],
-        description=plan["description"],
-        invoice_payload=make_invoice_payload_with_promo(plan["id"], chat_id, promo_code),
+        title=effective_plan["title"],
+        description=effective_plan["description"],
+        invoice_payload=make_invoice_payload_with_promo(effective_plan["id"], chat_id, promo_code),
         provider_token="",
         currency="XTR",
-        prices=[types.LabeledPrice(label=plan["description"], amount=amount)],
-        start_parameter=f"limitless-{plan['id']}",
+        prices=[types.LabeledPrice(label=effective_plan["description"], amount=amount)],
+        start_parameter=f"limitless-{effective_plan['id']}",
     )
 
 
@@ -1537,6 +1614,8 @@ def build_admin_panel_text() -> str:
         "/createkey &lt;30|90|lifetime|days:N&gt; [count] — создать ключи\n"
         "/createpromo &lt;CODE&gt; &lt;discount%&gt; [all|subscription_30d|subscription_90d|lifetime_access] [max_uses] — создать промокод\n"
         "/deletepromo &lt;CODE&gt; — удалить промокод\n"
+        "/prices — текущие цены магазина\n"
+        "/setprice &lt;30|90|lifetime&gt; &lt;stars&gt; — изменить цену\n"
         "/keylist [unused|redeemed|all] [limit] — список ключей\n"
         "/promolist [active|all] [limit] — список промокодов\n"
         "/extend &lt;token&gt; &lt;days&gt; — вручную продлить токен\n\n"
@@ -2026,6 +2105,59 @@ def handle_promo_list(message):
     )
 
 
+@bot.message_handler(commands=["prices"])
+def handle_prices(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            text = build_price_list_message(connection, "Текущие цены")
+
+    bot.send_message(message.chat.id, text, parse_mode="HTML")
+
+
+@bot.message_handler(commands=["setprice"])
+def handle_set_price(message):
+    if not is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Эта команда доступна только администратору.")
+        return
+
+    parts = message.text.split()
+    if len(parts) != 3:
+        bot.send_message(message.chat.id, "Использование: /setprice <30|90|lifetime> <stars>")
+        return
+
+    plan = resolve_plan_spec(parts[1])
+    if not plan or plan["id"] not in PLANS_BY_ID:
+        bot.send_message(message.chat.id, "Неизвестный тариф. Доступно: 30, 90, lifetime.")
+        return
+
+    try:
+        stars = int(parts[2])
+    except ValueError:
+        bot.send_message(message.chat.id, "Новая цена должна быть целым числом.")
+        return
+
+    if stars <= 0 or stars > 100000:
+        bot.send_message(message.chat.id, "Цена должна быть в диапазоне от 1 до 100000 stars.")
+        return
+
+    with db_lock:
+        with get_connection() as connection:
+            set_plan_price_override(connection, plan["id"], stars, message.from_user.id)
+            effective_plan = get_effective_plan(connection, plan["id"])
+            text = build_price_list_message(connection, "Цена обновлена")
+            connection.commit()
+
+    bot.send_message(
+        message.chat.id,
+        f"{text}\n\nОбновлено: {format_plan_label(effective_plan)} — {int(effective_plan['stars'])} stars",
+        parse_mode="HTML",
+    )
+
+
 @bot.message_handler(commands=["deletepromo"])
 def handle_delete_promo(message):
     if not is_admin(message.from_user.id):
@@ -2129,7 +2261,6 @@ def handle_pre_checkout_query(pre_checkout_query):
         )
         return
 
-    plan = parsed_payload["plan"]
     if parsed_payload["expected_chat_id"] != pre_checkout_query.from_user.id:
         bot.answer_pre_checkout_query(
             pre_checkout_query.id,
@@ -2138,19 +2269,28 @@ def handle_pre_checkout_query(pre_checkout_query):
         )
         return
 
-    if pre_checkout_query.currency != "XTR":
-        bot.answer_pre_checkout_query(
-            pre_checkout_query.id,
-            ok=False,
-            error_message="Для этой покупки используются только Telegram Stars.",
-        )
-        return
-
-    expected_amount = int(plan["stars"])
     promo_code = parsed_payload.get("promo_code")
-    if promo_code:
-        with db_lock:
-            with get_connection() as connection:
+    with db_lock:
+        with get_connection() as connection:
+            plan = get_effective_plan(connection, parsed_payload["plan_id"])
+            if not plan:
+                bot.answer_pre_checkout_query(
+                    pre_checkout_query.id,
+                    ok=False,
+                    error_message="Не удалось определить тариф оплаты.",
+                )
+                return
+
+            if pre_checkout_query.currency != "XTR":
+                bot.answer_pre_checkout_query(
+                    pre_checkout_query.id,
+                    ok=False,
+                    error_message="Для этой покупки используются только Telegram Stars.",
+                )
+                return
+
+            expected_amount = int(plan["stars"])
+            if promo_code:
                 promo = get_promo_code(connection, promo_code)
                 if not is_promo_valid_for_plan(connection, promo, plan, pre_checkout_query.from_user.id):
                     bot.answer_pre_checkout_query(
@@ -2183,13 +2323,20 @@ def handle_successful_payment(message):
         )
         return
 
-    plan = parsed_payload["plan"]
     promo_code = parsed_payload.get("promo_code")
     charge_id = payment.telegram_payment_charge_id
     username = message.from_user.username or message.from_user.first_name or "User"
+    plan = None
 
     with db_lock:
         with get_connection() as connection:
+            plan = get_effective_plan(connection, parsed_payload["plan_id"])
+            if not plan:
+                bot.send_message(
+                    message.chat.id,
+                    "Оплата получена, но тариф не удалось распознать. Напишите в поддержку.",
+                )
+                return
             existing_payment = get_star_payment_by_charge_id(connection, charge_id)
             if existing_payment:
                 token_data = get_token_by_value(connection, existing_payment["token"])
